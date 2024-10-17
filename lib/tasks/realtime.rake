@@ -3,8 +3,11 @@ require 'json'
 require 'base64'
 require 'net/http'
 require 'uri'
+require_relative '../audio_mode_helper'
 
 namespace :realtime do
+  include AudioModeHelper
+
   task vibe: :environment do
     battle_state = {}
     chat_messages = []
@@ -23,7 +26,7 @@ namespace :realtime do
       )
 
       openai_ws.on :open do |event|
-        puts 'Connected to OpenAI WebSocket'
+        audio_mode_puts 'Connected to OpenAI WebSocket'
         openai_ws.send({
           "type": 'session.update',
           "session": {
@@ -66,15 +69,17 @@ namespace :realtime do
 
       openai_ws.on :message do |event|
         response = JSON.parse(event.data)
-        puts "Received message: #{response}" if response['type'].include? 'response.function_call_arguments.done'
+        if response['type'].include? 'response.function_call_arguments.done'
+          audio_mode_puts "Received message: #{response}"
+        end
       end
 
       openai_ws.on :error do |event|
-        puts "WebSocket Error: #{event.message}"
+        audio_mode_puts "WebSocket Error: #{event.message}"
       end
 
       openai_ws.on :close do |event|
-        puts "Connection closed: #{event.code} - #{event.reason}"
+        audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
       end
 
       EM.add_periodic_timer(5) do
@@ -98,9 +103,9 @@ namespace :realtime do
         }.to_json)
         next unless battle_state[:battle_id].present?
 
-        puts battle_state
-        puts battle_state.keys
-        # puts "#{battle_state[:battle_id]}|/choose move default"
+        audio_mode_puts battle_state
+        audio_mode_puts battle_state.keys
+        # audio_mode_puts "#{battle_state[:battle_id]}|/choose move default"
         pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
       end
 
@@ -128,7 +133,7 @@ namespace :realtime do
           "choose #{random_move_name}!",
           "let's hit with #{random_move_name}!"
         ]
-        puts 'new chat message'
+        audio_mode_puts 'new chat message'
         chat_messages << "#{user}: #{move_requests.sample}"
       end
 
@@ -167,12 +172,12 @@ namespace :realtime do
       # end
 
       pokemon_showdown_ws.on :open do |event|
-        puts 'Connected to Pokemon Showdown WebSocket'
+        audio_mode_puts 'Connected to Pokemon Showdown WebSocket'
       end
 
       pokemon_showdown_ws.on :message do |event|
         message = event.data
-        puts message
+        audio_mode_puts message
         if message.include?('|challstr|')
 
           challstr = message.split('|')[2..].join('|')
@@ -191,9 +196,9 @@ namespace :realtime do
 
           if assertion
             pokemon_showdown_ws.send("|/trn #{ENV['POKE_USER']},0,#{assertion}")
-            puts "Logged in as #{ENV['POKE_USER']}"
+            audio_mode_puts "Logged in as #{ENV['POKE_USER']}"
           else
-            puts 'Login failed'
+            audio_mode_puts 'Login failed'
           end
         end
 
@@ -210,7 +215,7 @@ namespace :realtime do
 
             parsed_request = JSON.parse(request_json)
             battle_id = message.split('|').first.split('>').last.chomp.strip
-            puts battle_id
+            audio_mode_puts battle_id
             battle_state[:state] = parsed_request.deep_symbolize_keys!
             battle_state[:battle_id] = battle_id
             openai_ws.send({
@@ -233,11 +238,11 @@ namespace :realtime do
       end
 
       pokemon_showdown_ws.on :error do |event|
-        puts "WebSocket Error: #{event.message}"
+        audio_mode_puts "WebSocket Error: #{event.message}"
       end
 
       pokemon_showdown_ws.on :close do |event|
-        puts "Connection closed: #{event.code} - #{event.reason}"
+        audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
       end
     end
   end
