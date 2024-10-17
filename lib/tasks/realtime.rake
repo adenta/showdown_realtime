@@ -72,6 +72,10 @@ namespace :realtime do
         puts "Connection closed: #{event.code} - #{event.reason}"
       end
 
+      EM.add_periodic_timer(1) do
+        puts(battle_state)
+      end
+
       # EM.add_periodic_timer(10) do
       #   openai_ws.send({
       #     "type": 'conversation.item.create',
@@ -116,27 +120,47 @@ namespace :realtime do
 
       pokemon_showdown_ws.on :message do |event|
         message = event.data
-        next unless message.include?('|challstr|')
+        if message.include?('|challstr|')
 
-        challstr = message.split('|')[2..].join('|')
-        uri = URI.parse('https://play.pokemonshowdown.com/api/login')
-        response = Net::HTTP.post_form(
-          uri,
-          {
-            name: ENV['POKE_USER'],
-            pass: ENV['POKE_PASS'],
-            challstr:
-          }
-        )
+          challstr = message.split('|')[2..].join('|')
+          uri = URI.parse('https://play.pokemonshowdown.com/api/login')
+          response = Net::HTTP.post_form(
+            uri,
+            {
+              name: ENV['POKE_USER'],
+              pass: ENV['POKE_PASS'],
+              challstr:
+            }
+          )
 
-        body = JSON.parse(response.body.sub(']', '').strip)
-        assertion = body['assertion']
+          body = JSON.parse(response.body.sub(']', '').strip)
+          assertion = body['assertion']
 
-        if assertion
-          pokemon_showdown_ws.send("|/trn #{ENV['POKE_USER']},0,#{assertion}")
-          puts "Logged in as #{ENV['POKE_USER']}"
-        else
-          puts 'Login failed'
+          if assertion
+            pokemon_showdown_ws.send("|/trn #{ENV['POKE_USER']},0,#{assertion}")
+            puts "Logged in as #{ENV['POKE_USER']}"
+          else
+            puts 'Login failed'
+          end
+        end
+
+        if message.include?('|request|')
+          begin
+            # Extract the JSON part after the '|request|' message
+            request_index = message.index('|request|')
+
+            request_json = message[request_index + 9..-1] # Extract everything after '|request|'
+            request_json.strip
+
+            return unless request_json
+
+            parsed_request = JSON.parse(request_json)
+            battle_id = message.match('battle-\w*-\d*').to_s
+            battle_state[:state] = parsed_request
+            battle_state[:battle_id] = battle_id
+          rescue JSON::ParserError
+            # TODO(adenta) this is an expected empty response, dont want to log
+          end
         end
       end
 
