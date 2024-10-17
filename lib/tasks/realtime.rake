@@ -10,12 +10,11 @@ require_relative '../audio_mode_helper'
 module TwitchConnection
   attr_accessor :access_token, :nickname, :channel, :socket
 
-  def initialize(access_token, nickname, channel, chat_messages)
+  def initialize(access_token, nickname, channel)
     @access_token = access_token
     @nickname = nickname
     @channel = channel
     @socket = nil
-    @chat_messages = chat_messages
   end
 
   def post_init
@@ -31,7 +30,10 @@ module TwitchConnection
       sent_by, body = line.strip.split('#').last&.split(' :')
 
       if sent_by && body && line.include?('PRIVMSG')
-        @chat_messages << "#{sent_by}: #{body}"
+        puts "#{sent_by}: #{body}"
+        puts "#{sent_by}: #{body}"
+        puts "#{sent_by}: #{body}"
+        puts "#{sent_by}: #{body}"
 
       else
         audio_mode_puts 'no body or sent by found'
@@ -80,7 +82,7 @@ namespace :realtime do
         'wss://sim3.psim.us/showdown/websocket'
       )
 
-      EM.connect(server, port, TwitchConnection, access_token, nickname, channel, chat_messages)
+      EM.connect(server, port, TwitchConnection, access_token, nickname, channel)
 
       openai_ws.on :open do |event|
         audio_mode_puts 'Connected to OpenAI WebSocket'
