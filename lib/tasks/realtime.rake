@@ -254,6 +254,8 @@ namespace :realtime do
         if message.include?('|inactive|') && message.include?('60 sec')
           pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
         end
+
+        pokemon_showdown_ws.send('|/search gen9randombattle') if message.include?('|win|') || message.include?('|tie|')
       end
 
       pokemon_showdown_ws.on :error do |event|
