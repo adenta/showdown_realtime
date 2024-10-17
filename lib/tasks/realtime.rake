@@ -69,6 +69,7 @@ namespace :realtime do
 
       openai_ws.on :message do |event|
         response = JSON.parse(event.data)
+
         if response['type'].include? 'response.function_call_arguments.done'
           audio_mode_puts "Received message: #{response}"
         end
@@ -96,7 +97,11 @@ namespace :realtime do
         audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
       end
 
-      EM.add_periodic_timer(5) do
+      EM.add_periodic_timer(15) do
+        openai_ws.send({
+          "type": 'response.cancel'
+        }.to_json)
+
         openai_ws.send({
           "type": 'conversation.item.create',
           "item": {
@@ -115,12 +120,8 @@ namespace :realtime do
         openai_ws.send({
           "type": 'response.create'
         }.to_json)
-        next unless battle_state[:battle_id].present?
 
-        audio_mode_puts battle_state
-        audio_mode_puts battle_state.keys
-        # audio_mode_puts "#{battle_state[:battle_id]}|/choose move default"
-        pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
+        pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/timer on")
       end
 
       EM.add_periodic_timer(1) do
@@ -191,7 +192,6 @@ namespace :realtime do
 
       pokemon_showdown_ws.on :message do |event|
         message = event.data
-        audio_mode_puts message
         if message.include?('|challstr|')
 
           challstr = message.split('|')[2..].join('|')
@@ -248,6 +248,11 @@ namespace :realtime do
           rescue JSON::ParserError
             # TODO(adenta) this is an expected empty response, dont want to log
           end
+        end
+
+        # |inactive|Time left: 150 sec this turn | 150 sec total
+        if message.include?('|inactive|') && message.include?('60 sec')
+          pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
         end
       end
 
