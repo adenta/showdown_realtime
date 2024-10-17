@@ -31,7 +31,7 @@ module TwitchConnection
       sent_by, body = line.strip.split('#').last&.split(' :')
 
       if sent_by && body && line.include?('PRIVMSG')
-        chat_messages << "#{sent_by}: #{body}"
+        @chat_messages << "#{sent_by}: #{body}"
 
       else
         audio_mode_puts 'no body or sent by found'
@@ -189,7 +189,7 @@ namespace :realtime do
       end
 
       EM.add_periodic_timer(1) do
-        audio_mode_puts chat_messages
+        audio_mode_puts "chat_messages: #{chat_messages}"
       end
 
       # EM.add_periodic_timer(1) do
