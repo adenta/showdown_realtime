@@ -10,11 +10,12 @@ require_relative '../audio_mode_helper'
 module TwitchConnection
   attr_accessor :access_token, :nickname, :channel, :socket
 
-  def initialize(access_token, nickname, channel)
+  def initialize(access_token, nickname, channel, openai_ws)
     @access_token = access_token
     @nickname = nickname
     @channel = channel
     @socket = nil
+    @openai_ws = openai_ws
   end
 
   def post_init
@@ -30,10 +31,19 @@ module TwitchConnection
       sent_by, body = line.strip.split('#').last&.split(' :')
 
       if sent_by && body && line.include?('PRIVMSG')
-        puts "#{sent_by}: #{body}"
-        puts "#{sent_by}: #{body}"
-        puts "#{sent_by}: #{body}"
-        puts "#{sent_by}: #{body}"
+        @openai_ws.send({
+          "type": 'conversation.item.create',
+          "item": {
+            "type": 'message',
+            "role": 'user',
+            "content": [
+              {
+                "type": 'input_text',
+                "text": "#{sent_by}: #{body}"
+              }
+            ]
+          }
+        }.to_json)
 
       else
         audio_mode_puts 'no body or sent by found'
@@ -82,7 +92,7 @@ namespace :realtime do
         'wss://sim3.psim.us/showdown/websocket'
       )
 
-      EM.connect(server, port, TwitchConnection, access_token, nickname, channel)
+      EM.connect(server, port, TwitchConnection, access_token, nickname, channel, openai_ws)
 
       openai_ws.on :open do |event|
         audio_mode_puts 'Connected to OpenAI WebSocket'
@@ -129,6 +139,8 @@ namespace :realtime do
       openai_ws.on :message do |event|
         response = JSON.parse(event.data)
 
+        audio_mode_puts response unless response['type'].include?('delta')
+
         if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
           args = response['arguments']
           json_args = JSON.parse(args)
@@ -169,29 +181,10 @@ namespace :realtime do
         }.to_json)
 
         openai_ws.send({
-          "type": 'conversation.item.create',
-          "item": {
-            "type": 'message',
-            "role": 'user',
-            "content": [
-              {
-                "type": 'input_text',
-                "text": chat_messages.to_json
-              }
-            ]
-          }
-        }.to_json)
-        chat_messages = []
-
-        openai_ws.send({
           "type": 'response.create'
         }.to_json)
 
         pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/timer on")
-      end
-
-      EM.add_periodic_timer(1) do
-        audio_mode_puts "chat_messages: #{chat_messages}"
       end
 
       # EM.add_periodic_timer(1) do
