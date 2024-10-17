@@ -7,6 +7,7 @@ require 'uri'
 namespace :realtime do
   task vibe: :environment do
     battle_state = {}
+    chat_messages = []
     EM.run do
       openai_ws = Faye::WebSocket::Client.new(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', nil, {
@@ -61,7 +62,7 @@ namespace :realtime do
 
       openai_ws.on :message do |event|
         response = JSON.parse(event.data)
-        # puts "Received message: #{response}"
+        puts "Received message: #{response}" if response['type'].include? 'response.function_call_arguments.done'
       end
 
       openai_ws.on :error do |event|
@@ -72,10 +73,33 @@ namespace :realtime do
         puts "Connection closed: #{event.code} - #{event.reason}"
       end
 
+      EM.add_periodic_timer(5) do
+        openai_ws.send({
+          "type": 'conversation.item.create',
+          "item": {
+            "type": 'message',
+            "role": 'user',
+            "content": [
+              {
+                "type": 'input_text',
+                "text": chat_messages.to_json
+              }
+            ]
+          }
+        }.to_json)
+        chat_messages = []
+
+        openai_ws.send({
+          "type": 'response.create'
+        }.to_json)
+      end
+
       EM.add_periodic_timer(1) do
         next if battle_state.empty?
 
-        active_pokemon = battle_state[:state][:active].first # Get the first active Pokémon
+        active_pokemon = battle_state[:state][:active]&.first # Get the first active Pokémon
+        next unless active_pokemon.present?
+
         moves = active_pokemon[:moves].reject { |move| move[:disabled] } # Filter out disabled moves
 
         random_move = moves.sample # Select a random move
@@ -94,7 +118,8 @@ namespace :realtime do
           "choose #{random_move_name}!",
           "let's hit with #{random_move_name}!"
         ]
-        puts "#{user}: #{move_requests.sample}"
+        puts 'new chat message'
+        chat_messages << "#{user}: #{move_requests.sample}"
       end
 
       # EM.add_periodic_timer(10) do
@@ -180,6 +205,19 @@ namespace :realtime do
             battle_id = message.match('battle-\w*-\d*').to_s
             battle_state[:state] = parsed_request.deep_symbolize_keys!
             battle_state[:battle_id] = battle_id
+            openai_ws.send({
+              "type": 'conversation.item.create',
+              "item": {
+                "type": 'message',
+                "role": 'user',
+                "content": [
+                  {
+                    "type": 'input_text',
+                    "text": parsed_request.to_json
+                  }
+                ]
+              }
+            }.to_json)
           rescue JSON::ParserError
             # TODO(adenta) this is an expected empty response, dont want to log
           end
