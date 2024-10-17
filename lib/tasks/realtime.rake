@@ -70,8 +70,16 @@ namespace :realtime do
       openai_ws.on :message do |event|
         response = JSON.parse(event.data)
 
-        if response['type'].include? 'response.function_call_arguments.done'
-          audio_mode_puts "Received message: #{response}"
+        if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
+          args = response['arguments']
+          json_args = JSON.parse(args)
+
+          move_name = json_args['move_name']
+
+          battle_state[:state][:active].first[:moves].each_with_index do |move, i|
+            if move[:move] == move_name
+              pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/move #{i + 1}")
+          end
         end
 
         if response['type'] == 'response.audio.delta' && response['delta']
@@ -97,7 +105,7 @@ namespace :realtime do
         audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
       end
 
-      EM.add_periodic_timer(15) do
+      EM.add_periodic_timer(7) do
         openai_ws.send({
           "type": 'response.cancel'
         }.to_json)
@@ -192,6 +200,7 @@ namespace :realtime do
 
       pokemon_showdown_ws.on :message do |event|
         message = event.data
+        puts message
         if message.include?('|challstr|')
 
           challstr = message.split('|')[2..].join('|')
@@ -251,7 +260,18 @@ namespace :realtime do
         end
 
         # |inactive|Time left: 150 sec this turn | 150 sec total
-        if message.include?('|inactive|') && message.include?('60 sec')
+        # |inactive|Time left: 70 sec this turn | 70 sec total
+        if message.include?('|inactive|')
+          # match = message.match(/Time left: (\d+)/)
+          # next if match.nil?
+
+          # time_left = match.split(': ').last.to_i
+          # puts time_left
+          # puts time_left
+          # puts time_left
+          # puts time_left
+          # puts time_left
+
           pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
         end
 
