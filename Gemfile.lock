@@ -98,6 +98,8 @@ GEM
     drb (2.2.1)
     erubi (1.13.0)
     eventmachine (1.2.7)
+    faker (3.4.2)
+      i18n (>= 1.8.11, < 2)
     faye-websocket (0.11.3)
       eventmachine (>= 0.12.0)
       websocket-driver (>= 0.5.1)
@@ -237,6 +239,7 @@ DEPENDENCIES
   brakeman
   debug
   dotenv
+  faker
   faye-websocket
   pg (~> 1.1)
   puma (>= 5.0)

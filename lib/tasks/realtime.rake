@@ -73,7 +73,28 @@ namespace :realtime do
       end
 
       EM.add_periodic_timer(1) do
-        puts(battle_state)
+        next if battle_state.empty?
+
+        active_pokemon = battle_state[:state][:active].first # Get the first active Pokémon
+        moves = active_pokemon[:moves].reject { |move| move[:disabled] } # Filter out disabled moves
+
+        random_move = moves.sample # Select a random move
+        random_move_name = random_move[:move] # Return the move name
+        user = Faker::Internet.username
+
+        move_requests = [
+          "let's go with #{random_move_name}!",
+          "how about #{random_move_name}?",
+          "use #{random_move_name} now!",
+          "I suggest #{random_move_name}.",
+          "pick #{random_move_name}!",
+          "I think we should use #{random_move_name}.",
+          "let's try #{random_move_name}.",
+          "go for #{random_move_name}!",
+          "choose #{random_move_name}!",
+          "let's hit with #{random_move_name}!"
+        ]
+        puts "#{user}: #{move_requests.sample}"
       end
 
       # EM.add_periodic_timer(10) do
@@ -152,11 +173,12 @@ namespace :realtime do
             request_json = message[request_index + 9..-1] # Extract everything after '|request|'
             request_json.strip
 
-            return unless request_json
+            # TODO(adenta) worried this might cause problems
+            # next unless request_json
 
             parsed_request = JSON.parse(request_json)
             battle_id = message.match('battle-\w*-\d*').to_s
-            battle_state[:state] = parsed_request
+            battle_state[:state] = parsed_request.deep_symbolize_keys!
             battle_state[:battle_id] = battle_id
           rescue JSON::ParserError
             # TODO(adenta) this is an expected empty response, dont want to log

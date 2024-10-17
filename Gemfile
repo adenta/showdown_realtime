@@ -28,6 +28,7 @@ gem 'bootsnap', require: false
 
 gem 'async'
 gem 'dotenv'
+gem 'faker'
 gem 'faye-websocket'
 
 group :development, :test do
