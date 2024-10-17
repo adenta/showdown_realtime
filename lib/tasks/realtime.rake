@@ -27,22 +27,22 @@ module TwitchConnection
 
   def receive_data(data)
     data.each_line do |line|
-      puts line
+      audio_mode_puts line
       sent_by, body = line.strip.split('#').last&.split(' :')
 
       if sent_by && body && line.include?('PRIVMSG')
         chat_messages << "#{sent_by}: #{body}"
 
       else
-        puts 'no body or sent by found'
+        audio_mode_puts 'no body or sent by found'
       end
 
       # Respond to PING to stay connected
       send_data 'PONG :tmi.twitch.tv\r\n' if line.start_with?('PING')
     end
   rescue StandardError => e
-    puts "Error: #{e.message}"
-    puts e.backtrace.join("\n")
+    audio_mode_puts "Error: #{e.message}"
+    audio_mode_puts e.backtrace.join("\n")
   end
 
   def unbind
@@ -189,7 +189,7 @@ namespace :realtime do
       end
 
       EM.add_periodic_timer(1) do
-        puts chat_messages
+        audio_mode_puts chat_messages
       end
 
       # EM.add_periodic_timer(1) do
@@ -260,7 +260,7 @@ namespace :realtime do
 
       pokemon_showdown_ws.on :message do |event|
         message = event.data
-        puts message
+        audio_mode_puts message
         if message.include?('|challstr|')
 
           challstr = message.split('|')[2..].join('|')
@@ -326,11 +326,11 @@ namespace :realtime do
           # next if match.nil?
 
           # time_left = match.split(': ').last.to_i
-          # puts time_left
-          # puts time_left
-          # puts time_left
-          # puts time_left
-          # puts time_left
+          # audio_mode_puts time_left
+          # audio_mode_puts time_left
+          # audio_mode_puts time_left
+          # audio_mode_puts time_left
+          # audio_mode_puts time_left
 
           pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
         end
