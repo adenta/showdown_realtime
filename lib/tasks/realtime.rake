@@ -72,6 +72,20 @@ namespace :realtime do
         if response['type'].include? 'response.function_call_arguments.done'
           audio_mode_puts "Received message: #{response}"
         end
+
+        if response['type'] == 'response.audio.delta' && response['delta']
+          begin
+            # Base64 encoced PCM packets
+            audio_payload = response['delta']
+
+            if ENV['AUDIO_MODE'] == 'true'
+              STDOUT.write(Base64.decode64(audio_payload))
+              STDOUT.flush
+            end
+          rescue StandardError => e
+            audio_mode_puts "Error processing audio data: #{e}"
+          end
+        end
       end
 
       openai_ws.on :error do |event|
@@ -244,6 +258,14 @@ namespace :realtime do
       pokemon_showdown_ws.on :close do |event|
         audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
       end
+    end
+  end
+
+  task vibe_with_audio: :environment do
+    task play_simulation_with_pipe: :environment do
+      command = 'AUDIO_MODE=true rails realtime:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
+      puts command
+      system(command)
     end
   end
 end
