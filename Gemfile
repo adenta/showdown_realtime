@@ -27,6 +27,7 @@ gem 'bootsnap', require: false
 # gem "image_processing", "~> 1.2"
 
 gem 'async'
+gem 'clerk-sdk-ruby', require: 'clerk'
 gem 'dotenv'
 gem 'faker'
 gem 'faye-websocket'

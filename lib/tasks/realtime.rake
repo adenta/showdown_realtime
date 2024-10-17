@@ -3,7 +3,52 @@ require 'json'
 require 'base64'
 require 'net/http'
 require 'uri'
+require 'clerk'
+require 'socket'
 require_relative '../audio_mode_helper'
+
+module TwitchConnection
+  attr_accessor :access_token, :nickname, :channel, :socket
+
+  def initialize(access_token, nickname, channel, chat_messages)
+    @access_token = access_token
+    @nickname = nickname
+    @channel = channel
+    @socket = nil
+    @chat_messages = chat_messages
+  end
+
+  def post_init
+    # Send credentials
+    send_data "PASS oauth:#{@access_token}\r\n"
+    send_data "NICK #{@nickname}\r\n"
+    send_data "JOIN #{@channel}\r\n"
+  end
+
+  def receive_data(data)
+    data.each_line do |line|
+      puts line
+      sent_by, body = line.strip.split('#').last&.split(' :')
+
+      if sent_by && body && line.include?('PRIVMSG')
+        chat_messages << "#{sent_by}: #{body}"
+
+      else
+        puts 'no body or sent by found'
+      end
+
+      # Respond to PING to stay connected
+      send_data 'PONG :tmi.twitch.tv\r\n' if line.start_with?('PING')
+    end
+  rescue StandardError => e
+    puts "Error: #{e.message}"
+    puts e.backtrace.join("\n")
+  end
+
+  def unbind
+    EM.stop
+  end
+end
 
 namespace :realtime do
   include AudioModeHelper
@@ -11,6 +56,16 @@ namespace :realtime do
   task vibe: :environment do
     battle_state = {}
     chat_messages = []
+
+    clerk = Clerk::SDK.new(api_key: ENV['CLERK_SECRET_KEY'])
+
+    # Fetch OAuth token for Twitch
+    access_token = clerk.users.oauth_access_token(ENV['CLERK_USER_ID'], 'twitch').first['token']
+    nickname = 'adetna'
+    channel = '#adetna'
+    server = 'irc.chat.twitch.tv'
+    port = 6667
+
     EM.run do
       openai_ws = Faye::WebSocket::Client.new(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', nil, {
@@ -24,6 +79,8 @@ namespace :realtime do
       pokemon_showdown_ws = Faye::WebSocket::Client.new(
         'wss://sim3.psim.us/showdown/websocket'
       )
+
+      EM.connect(server, port, TwitchConnection, access_token, nickname, channel, chat_messages)
 
       openai_ws.on :open do |event|
         audio_mode_puts 'Connected to OpenAI WebSocket'
@@ -77,8 +134,7 @@ namespace :realtime do
           move_name = json_args['move_name']
 
           battle_state[:state][:active].first[:moves].each_with_index do |move, i|
-            if move[:move] == move_name
-              pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/move #{i + 1}")
+            pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/move #{i + 1}") if move[:move] == move_name
           end
         end
 
@@ -133,32 +189,36 @@ namespace :realtime do
       end
 
       EM.add_periodic_timer(1) do
-        next if battle_state.empty?
-
-        active_pokemon = battle_state[:state][:active]&.first # Get the first active Pokémon
-        next unless active_pokemon.present?
-
-        moves = active_pokemon[:moves].reject { |move| move[:disabled] } # Filter out disabled moves
-
-        random_move = moves.sample # Select a random move
-        random_move_name = random_move[:move] # Return the move name
-        user = Faker::Internet.username
-
-        move_requests = [
-          "let's go with #{random_move_name}!",
-          "how about #{random_move_name}?",
-          "use #{random_move_name} now!",
-          "I suggest #{random_move_name}.",
-          "pick #{random_move_name}!",
-          "I think we should use #{random_move_name}.",
-          "let's try #{random_move_name}.",
-          "go for #{random_move_name}!",
-          "choose #{random_move_name}!",
-          "let's hit with #{random_move_name}!"
-        ]
-        audio_mode_puts 'new chat message'
-        chat_messages << "#{user}: #{move_requests.sample}"
+        puts chat_messages
       end
+
+      # EM.add_periodic_timer(1) do
+      #   next if battle_state.empty?
+
+      #   active_pokemon = battle_state[:state][:active]&.first # Get the first active Pokémon
+      #   next unless active_pokemon.present?
+
+      #   moves = active_pokemon[:moves].reject { |move| move[:disabled] } # Filter out disabled moves
+
+      #   random_move = moves.sample # Select a random move
+      #   random_move_name = random_move[:move] # Return the move name
+      #   user = Faker::Internet.username
+
+      #   move_requests = [
+      #     "let's go with #{random_move_name}!",
+      #     "how about #{random_move_name}?",
+      #     "use #{random_move_name} now!",
+      #     "I suggest #{random_move_name}.",
+      #     "pick #{random_move_name}!",
+      #     "I think we should use #{random_move_name}.",
+      #     "let's try #{random_move_name}.",
+      #     "go for #{random_move_name}!",
+      #     "choose #{random_move_name}!",
+      #     "let's hit with #{random_move_name}!"
+      #   ]
+      #   audio_mode_puts 'new chat message'
+      #   chat_messages << "#{user}: #{move_requests.sample}"
+      # end
 
       # EM.add_periodic_timer(10) do
       #   openai_ws.send({
