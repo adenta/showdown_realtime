@@ -68,6 +68,40 @@ namespace :realtime do
       openai_ws.on :close do |event|
         puts "Connection closed: #{event.code} - #{event.reason}"
       end
+
+      EM.add_periodic_timer(10) do
+        openai_ws.send({
+          "type": 'conversation.item.create',
+          "item": {
+            "type": 'message',
+            "role": 'user',
+            "content": [
+              {
+                "type": 'input_text',
+                "text": 'Right now you have a blastoise on the field that knows hydro pump and ice beam. your opponent is a jolteon.'
+              }
+            ]
+          }
+        }.to_json)
+
+        openai_ws.send({
+          "type": 'conversation.item.create',
+          "item": {
+            "type": 'message',
+            "role": 'user',
+            "content": [
+              {
+                "type": 'input_text',
+                "text": 'beebo8362: use ice beam!!!'
+              }
+            ]
+          }
+        }.to_json)
+
+        openai_ws.send({
+          "type": 'response.create'
+        }.to_json)
+      end
     end
   end
 end
