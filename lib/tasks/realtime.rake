@@ -18,6 +18,10 @@ namespace :realtime do
         }
       )
 
+      pokemon_showdown_ws = Faye::WebSocket::Client.new(
+        'wss://sim3.psim.us/showdown/websocket'
+      )
+
       openai_ws.on :open do |event|
         puts 'Connected to OpenAI WebSocket'
         openai_ws.send({
@@ -92,6 +96,12 @@ namespace :realtime do
         openai_ws.send({
           "type": 'response.create'
         }.to_json)
+        next unless battle_state[:battle_id].present?
+
+        puts battle_state
+        puts battle_state.keys
+        # puts "#{battle_state[:battle_id]}|/choose move default"
+        pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
       end
 
       EM.add_periodic_timer(1) do
@@ -156,16 +166,13 @@ namespace :realtime do
       #   }.to_json)
       # end
 
-      pokemon_showdown_ws = Faye::WebSocket::Client.new(
-        'wss://sim3.psim.us/showdown/websocket'
-      )
-
       pokemon_showdown_ws.on :open do |event|
         puts 'Connected to Pokemon Showdown WebSocket'
       end
 
       pokemon_showdown_ws.on :message do |event|
         message = event.data
+        puts message
         if message.include?('|challstr|')
 
           challstr = message.split('|')[2..].join('|')
@@ -202,7 +209,8 @@ namespace :realtime do
             # next unless request_json
 
             parsed_request = JSON.parse(request_json)
-            battle_id = message.match('battle-\w*-\d*').to_s
+            battle_id = message.split('|').first.split('>').last.chomp.strip
+            puts battle_id
             battle_state[:state] = parsed_request.deep_symbolize_keys!
             battle_state[:battle_id] = battle_id
             openai_ws.send({
