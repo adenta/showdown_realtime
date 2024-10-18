@@ -103,7 +103,7 @@ namespace :realtime do
               text
               audio
             ],
-            "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer watching a game of pokemon.  \nprovide some commentary of the match as it happens. \n",
+            "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch.  \nprovide some commentary of the match as it happens. \n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable.",
             "voice": 'alloy',
             "input_audio_format": 'pcm16',
             "output_audio_format": 'pcm16',
@@ -128,6 +128,23 @@ namespace :realtime do
                     'move_name'
                   ]
                 }
+              },
+              {
+                "type": 'function',
+                "name": 'switch_pokemon',
+                "description": 'switches to an active pokemon. Only choose a pokemon when a member of chat suggests you use it.',
+                "parameters": {
+                  "type": 'object',
+                  "properties": {
+                    "switch_name": {
+                      "type": 'string',
+                      "description": 'the name of the pokemon to switch to'
+                    }
+                  },
+                  "required": [
+                    'switch_name'
+                  ]
+                }
               }
             ],
             "tool_choice": 'auto',
@@ -146,9 +163,24 @@ namespace :realtime do
           json_args = JSON.parse(args)
 
           move_name = json_args['move_name']
+          active_pokemon = battle_state[:state][:active]
+          first_active_pokemon = active_pokemon&.first
 
-          battle_state[:state][:active].first[:moves].each_with_index do |move, i|
+          next unless first_active_pokemon.present?
+
+          first_active_pokemon[:moves].each_with_index do |move, i|
             pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/move #{i + 1}") if move[:move] == move_name
+          end
+        end
+
+        if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'switch_pokemon'
+          args = response['arguments']
+          json_args = JSON.parse(args)
+
+          switch_name = json_args['switch_name']
+ 
+          battle_state[:side][:pokemon].each_with_index do |pokemon, i|
+            pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}") if pokemon[:ident].include?(switch_name)
           end
         end
 
