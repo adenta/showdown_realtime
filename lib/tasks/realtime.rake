@@ -169,6 +169,7 @@ namespace :realtime do
         response = JSON.parse(event.data)
 
         audio_mode_puts response unless response['type'].include?('delta')
+        audio_mode_puts response if response['type'].include? 'response.function_call_arguments.done'
 
         if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
           next if battle_state.empty?
@@ -373,6 +374,7 @@ namespace :realtime do
         #   NOTHING_TO_CHOOSE = "|error|[Invalid choice] There's nothing to choose"
         
         if message.include?('|inactive|') || message.include?('|error|') || message.include?('[Invalid choice]')
+          audio_mode_puts message
           openai_ws.send(message)
         end
 
