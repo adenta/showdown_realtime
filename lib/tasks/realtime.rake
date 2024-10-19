@@ -144,19 +144,8 @@ namespace :realtime do
                     'switch_name'
                   ]
                 }
-              },
-              {
-                "type": 'function',
-                "name": 'choose_default',
-                "description": 'choose a default action when you are runnining low on time (ie: there is less than a minute remaining before you need to make a decision)',
-                "parameters": {
-                  "type": 'object',
-                  "properties": {
-                  },
-                  "required": [
-                  ]
-                }
               }
+              
             ],
             "tool_choice": 'auto',
             "temperature": 1
@@ -194,10 +183,6 @@ namespace :realtime do
           pokemon.each_with_index do |pokemon, i|
             pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}") if pokemon[:ident].include?(switch_name)
           end
-        end
-
-        if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_default'
-          pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
         end
 
         if response['type'] == 'response.audio.delta' && response['delta']
@@ -308,6 +293,10 @@ namespace :realtime do
         
         if message.include?('|inactive|') || message.include?('|error|') || message.include?('[Invalid choice]')
           openai_ws.send(message)
+          match = message.match(/\d+ sec/)
+          next unless match
+          time_remaining = match[0].split(" sec").first.to_i
+          pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default") if time_remaining < 90
         end
 
         pokemon_showdown_ws.send('|/search gen9randombattle') if message.include?('|win|') || message.include?('|tie|')
