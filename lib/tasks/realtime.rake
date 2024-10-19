@@ -27,7 +27,6 @@ module TwitchConnection
 
   def receive_data(data)
     data.each_line do |line|
-      audio_mode_puts line
       sent_by, body = line.strip.split('#').last&.split(' :')
 
       if sent_by && body && line.include?('PRIVMSG')
@@ -168,9 +167,6 @@ namespace :realtime do
       openai_ws.on :message do |event|
         response = JSON.parse(event.data)
 
-        audio_mode_puts response unless response['type'].include?('delta')
-        audio_mode_puts response if response['type'].include? 'response.function_call_arguments.done'
-
         if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
           next if battle_state.empty?
           args = response['arguments']
@@ -239,75 +235,13 @@ namespace :realtime do
         pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/timer on")
       end
 
-      # EM.add_periodic_timer(1) do
-      #   next if battle_state.empty?
-
-      #   active_pokemon = battle_state[:state][:active]&.first # Get the first active Pokémon
-      #   next unless active_pokemon.present?
-
-      #   moves = active_pokemon[:moves].reject { |move| move[:disabled] } # Filter out disabled moves
-
-      #   random_move = moves.sample # Select a random move
-      #   random_move_name = random_move[:move] # Return the move name
-      #   user = Faker::Internet.username
-
-      #   move_requests = [
-      #     "let's go with #{random_move_name}!",
-      #     "how about #{random_move_name}?",
-      #     "use #{random_move_name} now!",
-      #     "I suggest #{random_move_name}.",
-      #     "pick #{random_move_name}!",
-      #     "I think we should use #{random_move_name}.",
-      #     "let's try #{random_move_name}.",
-      #     "go for #{random_move_name}!",
-      #     "choose #{random_move_name}!",
-      #     "let's hit with #{random_move_name}!"
-      #   ]
-      #   audio_mode_puts 'new chat message'
-      #   chat_messages << "#{user}: #{move_requests.sample}"
-      # end
-
-      # EM.add_periodic_timer(10) do
-      #   openai_ws.send({
-      #     "type": 'conversation.item.create',
-      #     "item": {
-      #       "type": 'message',
-      #       "role": 'user',
-      #       "content": [
-      #         {
-      #           "type": 'input_text',
-      #           "text": 'Right now you have a blastoise on the field that knows hydro pump and ice beam. your opponent is a jolteon.'
-      #         }
-      #       ]
-      #     }
-      #   }.to_json)
-
-      #   openai_ws.send({
-      #     "type": 'conversation.item.create',
-      #     "item": {
-      #       "type": 'message',
-      #       "role": 'user',
-      #       "content": [
-      #         {
-      #           "type": 'input_text',
-      #           "text": 'beebo8362: use ice beam!!!'
-      #         }
-      #       ]
-      #     }
-      #   }.to_json)
-
-      #   openai_ws.send({
-      #     "type": 'response.create'
-      #   }.to_json)
-      # end
-
       pokemon_showdown_ws.on :open do |event|
         audio_mode_puts 'Connected to Pokemon Showdown WebSocket'
       end
 
       pokemon_showdown_ws.on :message do |event|
         message = event.data
-        audio_mode_puts message
+
         if message.include?('|challstr|')
 
           challstr = message.split('|')[2..].join('|')
@@ -345,7 +279,6 @@ namespace :realtime do
 
             parsed_request = JSON.parse(request_json)
             battle_id = message.split('|').first.split('>').last.chomp.strip
-            audio_mode_puts battle_id
             battle_state[:state] = parsed_request.deep_symbolize_keys!
             battle_state[:battle_id] = battle_id
             openai_ws.send({
@@ -374,7 +307,6 @@ namespace :realtime do
         #   NOTHING_TO_CHOOSE = "|error|[Invalid choice] There's nothing to choose"
         
         if message.include?('|inactive|') || message.include?('|error|') || message.include?('[Invalid choice]')
-          audio_mode_puts message
           openai_ws.send(message)
         end
 
