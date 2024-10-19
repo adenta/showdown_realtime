@@ -103,7 +103,7 @@ namespace :realtime do
               text
               audio
             ],
-            "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch.  \nprovide some commentary of the match as it happens. \n Answer chats questions as they are asked.\n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable. When you take a members suggestion, call them out for using their suggestion. Keep your responses super short, sweet, and to the point.",
+            "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch. \nProvide some commentary of the match as it happens. \n Answer chats questions as they are asked. \n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable. When you take a members suggestion, call them out and thank them for their suggestion. Keep your responses super short, sweet, and to the point. Each round has an inactive timer. If the inactive timer hits zero, you lose. So be careful not to run out of time in the round if you have less than a minute to make a response.",
             "voice": 'alloy',
             "input_audio_format": 'pcm16',
             "output_audio_format": 'pcm16',
@@ -115,7 +115,7 @@ namespace :realtime do
               {
                 "type": 'function',
                 "name": 'choose_move',
-                "description": 'chooses a move in a game of pokemon. Only choose a move when a member of chat suggests you use it.',
+                "description": 'chooses a move in a game of pokemon. Only choose a move when a member of chat suggests you use it, or if you have less than a minute left to make a decision.',
                 "parameters": {
                   "type": 'object',
                   "properties": {
@@ -132,7 +132,7 @@ namespace :realtime do
               {
                 "type": 'function',
                 "name": 'switch_pokemon',
-                "description": 'switches to an active pokemon. Only choose a pokemon when a member of chat suggests you use it.',
+                "description": 'switches to an active pokemon. Only choose a pokemon when a member of chat suggests you use it, or if you have less than a minute left to make a decision.',
                 "parameters": {
                   "type": 'object',
                   "properties": {
@@ -143,6 +143,18 @@ namespace :realtime do
                   },
                   "required": [
                     'switch_name'
+                  ]
+                }
+              },
+              {
+                "type": 'function',
+                "name": 'choose_default',
+                "description": 'choose a default action when you are runnining low on time (ie: there is less than a minute remaining before you need to make a decision)',
+                "parameters": {
+                  "type": 'object',
+                  "properties": {
+                  },
+                  "required": [
                   ]
                 }
               }
@@ -185,6 +197,10 @@ namespace :realtime do
           pokemon.each_with_index do |pokemon, i|
             pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}") if pokemon[:ident].include?(switch_name)
           end
+        end
+
+        if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_default'
+          pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
         end
 
         if response['type'] == 'response.audio.delta' && response['delta']
@@ -351,19 +367,14 @@ namespace :realtime do
 
         # |inactive|Time left: 150 sec this turn | 150 sec total
         # |inactive|Time left: 70 sec this turn | 70 sec total
-        # if message.include?('|inactive|') && message.include?('')
-        #   # match = message.match(/Time left: (\d+)/)
-        #   # next if match.nil?
-
-        #   # time_left = match.split(': ').last.to_i
-        #   # audio_mode_puts time_left
-        #   # audio_mode_puts time_left
-        #   # audio_mode_puts time_left
-        #   # audio_mode_puts time_left
-        #   # audio_mode_puts time_left
-
-        #   pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
-        # end
+        # |error|[Invalid choice]
+        # GAME_OVER_MESSAGE = "|error|[Invalid choice] Can't do anything: The game is over"
+        #   TOO_LATE_MESSAGE="|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started"
+        #   NOTHING_TO_CHOOSE = "|error|[Invalid choice] There's nothing to choose"
+        
+        if message.include?('|inactive|') || message.include?('|error|') || message.include?('[Invalid choice]')
+          openai_ws.send(message)
+        end
 
         pokemon_showdown_ws.send('|/search gen9randombattle') if message.include?('|win|') || message.include?('|tie|')
       end
