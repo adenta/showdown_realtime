@@ -103,7 +103,7 @@ namespace :realtime do
               text
               audio
             ],
-            "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch.  \nprovide some commentary of the match as it happens. \n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable.",
+            "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch.  \nprovide some commentary of the match as it happens. \n Answer chats questions as they are asked.\n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable. When you take a members suggestion, call them out for using their suggestion. Keep your responses super short, sweet, and to the point.",
             "voice": 'alloy',
             "input_audio_format": 'pcm16',
             "output_audio_format": 'pcm16',
@@ -159,6 +159,7 @@ namespace :realtime do
         audio_mode_puts response unless response['type'].include?('delta')
 
         if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
+          next if battle_state.empty?
           args = response['arguments']
           json_args = JSON.parse(args)
 
@@ -178,8 +179,10 @@ namespace :realtime do
           json_args = JSON.parse(args)
 
           switch_name = json_args['switch_name']
- 
-          battle_state[:side][:pokemon].each_with_index do |pokemon, i|
+
+          pokemon = battle_state.dig(:side, :pokemon)
+          next unless pokemon.present?
+          pokemon.each_with_index do |pokemon, i|
             pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}") if pokemon[:ident].include?(switch_name)
           end
         end
@@ -207,10 +210,10 @@ namespace :realtime do
         audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
       end
 
-      EM.add_periodic_timer(7) do
-        openai_ws.send({
-          "type": 'response.cancel'
-        }.to_json)
+      EM.add_periodic_timer(20) do
+        # openai_ws.send({
+        #   "type": 'response.cancel'
+        # }.to_json)
 
         openai_ws.send({
           "type": 'response.create'
@@ -348,19 +351,19 @@ namespace :realtime do
 
         # |inactive|Time left: 150 sec this turn | 150 sec total
         # |inactive|Time left: 70 sec this turn | 70 sec total
-        if message.include?('|inactive|')
-          # match = message.match(/Time left: (\d+)/)
-          # next if match.nil?
+        # if message.include?('|inactive|') && message.include?('')
+        #   # match = message.match(/Time left: (\d+)/)
+        #   # next if match.nil?
 
-          # time_left = match.split(': ').last.to_i
-          # audio_mode_puts time_left
-          # audio_mode_puts time_left
-          # audio_mode_puts time_left
-          # audio_mode_puts time_left
-          # audio_mode_puts time_left
+        #   # time_left = match.split(': ').last.to_i
+        #   # audio_mode_puts time_left
+        #   # audio_mode_puts time_left
+        #   # audio_mode_puts time_left
+        #   # audio_mode_puts time_left
+        #   # audio_mode_puts time_left
 
-          pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
-        end
+        #   pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default")
+        # end
 
         pokemon_showdown_ws.send('|/search gen9randombattle') if message.include?('|win|') || message.include?('|tie|')
       end
@@ -376,7 +379,7 @@ namespace :realtime do
   end
 
   task vibe_with_audio: :environment do
-    command = 'AUDIO_MODE=true rails realtime:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream2'
+    command = 'AUDIO_MODE=true rails realtime:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
     system(command)
   end
 end
