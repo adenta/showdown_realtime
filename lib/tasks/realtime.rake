@@ -77,6 +77,7 @@ namespace :realtime do
     port = 6667
 
     EM.run do
+      osc_client = OSC::Client.new('localhost', 39_540)
       openai_ws = Faye::WebSocket::Client.new(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', nil, {
           headers: {
@@ -223,11 +224,11 @@ namespace :realtime do
         pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/timer on")
       end
 
-      EM.add_periodic_timer(0.1) do
-        value = ((Time.now.to_f % 5) < 1 ? 1.0 : 0.0)
-        message = OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadUpDown', value)
-        client.send(message)
-      end
+      # EM.add_periodic_timer(0.1) do
+      #   value = ((Time.now.to_f % 5) < 1 ? 1.0 : 0.0)
+      #   message = OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadUpDown', value)
+      #   osc_client.send(message)
+      # end
 
       pokemon_showdown_ws.on :open do |event|
         audio_mode_puts 'Connected to Pokemon Showdown WebSocket'
