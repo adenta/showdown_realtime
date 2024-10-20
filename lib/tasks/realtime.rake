@@ -66,7 +66,6 @@ namespace :realtime do
 
   task vibe: :environment do
     battle_state = {}
-    chat_messages = []
 
     clerk = Clerk::SDK.new(api_key: ENV['CLERK_SECRET_KEY'])
 
@@ -145,7 +144,7 @@ namespace :realtime do
                   ]
                 }
               }
-              
+
             ],
             "tool_choice": 'auto',
             "temperature": 1
@@ -158,6 +157,7 @@ namespace :realtime do
 
         if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
           next if battle_state.empty?
+
           args = response['arguments']
           json_args = JSON.parse(args)
 
@@ -180,8 +180,11 @@ namespace :realtime do
 
           pokemon = battle_state.dig(:side, :pokemon)
           next unless pokemon.present?
+
           pokemon.each_with_index do |pokemon, i|
-            pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}") if pokemon[:ident].include?(switch_name)
+            if pokemon[:ident].include?(switch_name)
+              pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}")
+            end
           end
         end
 
@@ -218,6 +221,12 @@ namespace :realtime do
         }.to_json)
 
         pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/timer on")
+      end
+
+      EM.add_periodic_timer(0.1) do
+        value = ((Time.now.to_f % 5) < 1 ? 1.0 : 0.0)
+        message = OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadUpDown', value)
+        client.send(message)
       end
 
       pokemon_showdown_ws.on :open do |event|
@@ -294,7 +303,8 @@ namespace :realtime do
           openai_ws.send(message)
           match = message.match(/\d+ sec/)
           next unless match
-          time_remaining = match[0].split(" sec").first.to_i
+
+          time_remaining = match[0].split(' sec').first.to_i
           pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default") if time_remaining < 91
         end
 
