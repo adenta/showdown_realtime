@@ -102,7 +102,7 @@ namespace :realtime do
               text
               audio
             ],
-            "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch. \nProvide some commentary of the match as it happens. \n Answer chats questions as they are asked. \n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable. When you take a members suggestion, call them out and thank them for their suggestion. Keep your responses super short, sweet, and to the point. Each round has an inactive timer. If the inactive timer hits zero, you lose. So be careful not to run out of time in the round if you have less than a minute to make a response.",
+            "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch. \nProvide some commentary of the match as it happens. \n Answer chats questions as they are asked. \n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable. When you take a members suggestion, call them out and thank them for their suggestion.",
             "voice": 'alloy',
             "input_audio_format": 'pcm16',
             "output_audio_format": 'pcm16',
@@ -296,7 +296,7 @@ namespace :realtime do
           match = message.match(/\d+ sec/)
           next unless match
           time_remaining = match[0].split(" sec").first.to_i
-          pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default") if time_remaining < 90
+          pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default") if time_remaining < 91
         end
 
         pokemon_showdown_ws.send('|/search gen9randombattle') if message.include?('|win|') || message.include?('|tie|')
