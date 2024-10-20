@@ -290,7 +290,6 @@ namespace :realtime do
         # GAME_OVER_MESSAGE = "|error|[Invalid choice] Can't do anything: The game is over"
         #   TOO_LATE_MESSAGE="|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started"
         #   NOTHING_TO_CHOOSE = "|error|[Invalid choice] There's nothing to choose"
-        
         if message.include?('|inactive|') || message.include?('|error|') || message.include?('[Invalid choice]')
           openai_ws.send(message)
           match = message.match(/\d+ sec/)
