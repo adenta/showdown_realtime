@@ -30,6 +30,9 @@ module TwitchConnection
       sent_by, body = line.strip.split('#').last&.split(' :')
 
       if sent_by && body && line.include?('PRIVMSG')
+        audio_mode_puts sent_by
+        audio_mode_puts body
+
         @openai_ws.send({
           "type": 'conversation.item.create',
           "item": {
@@ -109,7 +112,6 @@ namespace :realtime do
             "input_audio_transcription": {
               "model": 'whisper-1'
             },
-            "turn_detection": nil,
             "tools": [
               {
                 "type": 'function',
@@ -144,8 +146,7 @@ namespace :realtime do
                     'switch_name'
                   ]
                 }
-              }
-
+              },
             ],
             "tool_choice": 'auto',
             "temperature": 1
@@ -187,6 +188,17 @@ namespace :realtime do
               pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}")
             end
           end
+        end
+
+        if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'get_weather'
+          raise "emote"
+          # args = response['arguments']
+          # json_args = JSON.parse(args)
+
+          # emotion_name = json_args['emotion_name']
+
+          # raise emotion_name
+
         end
 
         if response['type'] == 'response.audio.delta' && response['delta']
