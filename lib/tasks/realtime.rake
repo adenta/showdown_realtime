@@ -136,7 +136,7 @@ namespace :realtime do
               {
                 "type": 'function',
                 "name": 'choose_move',
-                "description": 'chooses a move in a game of pokemon. Only choose a move when a member of chat suggests you use it, or if you have less than a minute left to make a decision.',
+                "description": 'chooses a move in a game of pokemon. Only choose a move when someone suggests it.',
                 "parameters": {
                   "type": 'object',
                   "properties": {
@@ -153,7 +153,7 @@ namespace :realtime do
               {
                 "type": 'function',
                 "name": 'switch_pokemon',
-                "description": 'switches to an active pokemon. Only choose a pokemon when a member of chat suggests you use it, or if you have less than a minute left to make a decision.',
+                "description": 'switches to an active pokemon. Only choose a pokemon when someone.',
                 "parameters": {
                   "type": 'object',
                   "properties": {
@@ -180,6 +180,8 @@ namespace :realtime do
         if response['type'].include? 'response.done'
           puts "Response: #{response.dig('response', 'output', 0, 'content', 0, 'transcript')}"
         end
+
+        puts response if response['type'].include? 'response.function_call_arguments.done'
 
         if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
           next if battle_state.empty?
