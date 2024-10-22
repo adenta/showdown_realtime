@@ -80,7 +80,6 @@ namespace :realtime do
     port = 6667
 
     EM.run do
-      osc_client = OSC::Client.new('localhost', 39_540)
       openai_ws = Faye::WebSocket::Client.new(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', nil, {
           headers: {
@@ -96,6 +95,26 @@ namespace :realtime do
 
       EM.connect(server, port, TwitchConnection, access_token, nickname, channel, openai_ws)
 
+      EM.defer do
+        loop do
+          input = gets.chomp
+          audio_mode_puts "Received: #{input}"
+          openai_ws.send({
+            "type": 'conversation.item.create',
+            "item": {
+              "type": 'message',
+              "role": 'user',
+              "content": [
+                {
+                  "type": 'input_text',
+                  "text": input
+                }
+              ]
+            }
+          }.to_json)
+        end
+      end
+
       openai_ws.on :open do |event|
         audio_mode_puts 'Connected to OpenAI WebSocket'
         openai_ws.send({
@@ -107,6 +126,7 @@ namespace :realtime do
             ],
             "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch. \nProvide some commentary of the match as it happens. \n Answer chats questions as they are asked. \n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable. When you take a members suggestion, call them out and thank them for their suggestion.",
             "voice": 'alloy',
+            "turn_detection": nil,
             "input_audio_format": 'pcm16',
             "output_audio_format": 'pcm16',
             "input_audio_transcription": {
@@ -146,7 +166,7 @@ namespace :realtime do
                     'switch_name'
                   ]
                 }
-              },
+              }
             ],
             "tool_choice": 'auto',
             "temperature": 1
@@ -156,6 +176,10 @@ namespace :realtime do
 
       openai_ws.on :message do |event|
         response = JSON.parse(event.data)
+
+        if response['type'].include? 'response.done'
+          puts "Response: #{response.dig('response', 'output', 0, 'content', 0, 'transcript')}"
+        end
 
         if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
           next if battle_state.empty?
@@ -190,17 +214,6 @@ namespace :realtime do
           end
         end
 
-        if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'get_weather'
-          raise "emote"
-          # args = response['arguments']
-          # json_args = JSON.parse(args)
-
-          # emotion_name = json_args['emotion_name']
-
-          # raise emotion_name
-
-        end
-
         if response['type'] == 'response.audio.delta' && response['delta']
           begin
             # Base64 encoced PCM packets
@@ -224,7 +237,8 @@ namespace :realtime do
         audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
       end
 
-      EM.add_periodic_timer(20) do
+      EM.add_periodic_timer(10) do
+        audio_mode_puts 'creating a response'
         # openai_ws.send({
         #   "type": 'response.cancel'
         # }.to_json)
@@ -235,12 +249,6 @@ namespace :realtime do
 
         pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/timer on")
       end
-
-      # EM.add_periodic_timer(0.1) do
-      #   value = ((Time.now.to_f % 5) < 1 ? 1.0 : 0.0)
-      #   message = OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadUpDown', value)
-      #   osc_client.send(message)
-      # end
 
       pokemon_showdown_ws.on :open do |event|
         audio_mode_puts 'Connected to Pokemon Showdown WebSocket'
@@ -313,7 +321,20 @@ namespace :realtime do
         #   TOO_LATE_MESSAGE="|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started"
         #   NOTHING_TO_CHOOSE = "|error|[Invalid choice] There's nothing to choose"
         if message.include?('|inactive|') || message.include?('|error|') || message.include?('[Invalid choice]')
-          openai_ws.send(message)
+          openai_ws.send({
+            "type": 'conversation.item.create',
+            "item": {
+              "type": 'message',
+              "role": 'user',
+              "content": [
+                {
+                  "type": 'input_text',
+                  "text": message
+                }
+              ]
+            }
+          }.to_json)
+
           match = message.match(/\d+ sec/)
           next unless match
 
