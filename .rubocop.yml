@@ -4,3 +4,7 @@
 # # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
 # Layout/SpaceInsideArrayLiteralBrackets:
 #   Enabled: false
+
+
+Style/MutableConstant:
+  Enabled: true
