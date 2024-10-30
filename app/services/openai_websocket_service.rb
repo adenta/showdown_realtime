@@ -4,7 +4,7 @@ require 'async'
 require 'async/http'
 require 'async/websocket'
 
-class OpenaiWebsocketService
+class OpenaiWebsocketService < ApplicationWebsocketService
   URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01'
   HEADERS = {
     'Authorization': "Bearer #{ENV.fetch('OPENAI_API_KEY', nil)}",
@@ -30,17 +30,16 @@ class OpenaiWebsocketService
     }
   }.freeze
 
-  def initialize(audio_payload_queue)
-    @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
-    @audio_payload_queue = audio_payload_queue
-  end
+  def open_connection
+    endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
 
-  def open_connection(openai_message_queue)
-    Async::WebSocket::Client.connect(@endpoint, headers: HEADERS) do |connection|
-      Async do |_task|
+    Async do
+      Async::WebSocket::Client.connect(endpoint, headers: HEADERS) do |connection|
         session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
         session_update_message.send(connection)
         connection.flush
+
+        process_inbound_messages(connection)
 
         while (message = connection.read)
           payload = JSON.parse(message)
@@ -48,21 +47,28 @@ class OpenaiWebsocketService
 
           next unless payload['type'] == 'response.audio.delta' && payload['delta']
 
-          @audio_payload_queue.enqueue(response['delta'])
-        end
-      end
-
-      Async do |_task|
-        loop do
-          message = openai_message_queue.dequeue
-
-          next unless message
-
-          openai_message = Protocol::WebSocket::TextMessage.generate(message)
-          openai_message.send(connection)
-          connection.flush
+          @outbound_message_queue.enqueue(response['delta'])
         end
       end
     end
+  end
+
+  def process_inbound_messages(connection)
+    Async do
+      loop do
+        message = inbound_message_queue.dequeue
+
+        raise NotImplementedError
+
+        openai_message = Protocol::WebSocket::TextMessage.generate(message)
+        openai_message.send(connection)
+        connection.flush
+      end
+    end
+  end
+
+  private
+
+  def self.construct_audio_delta_message(delta)
   end
 end
