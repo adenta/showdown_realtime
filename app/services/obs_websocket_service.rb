@@ -19,60 +19,65 @@ class ObsWebsocketService
     Async::WebSocket::Client.connect(@endpoint) do |connection|
       challange_message = connection.read.to_h
 
-      auth_key = generate_auth(
-        challange_message[:d][:authentication][:challenge],
-        challange_message[:d][:authentication][:salt]
-      )
+      challenge = challange_message[:d][:authentication][:challenge]
+      salt = challange_message[:d][:authentication][:salt]
+
+      # Create authentication string
+      sha256 = OpenSSL::Digest.new('SHA256')
+      password_salt = ENV['OBS_WEBSOCKET_PASSWORD'] + salt
+      hash1 = sha256.digest(password_salt)
+      base64_secret = Base64.strict_encode64(hash1)
+      secret_challenge = base64_secret + challenge
+      hash2 = sha256.digest(secret_challenge)
+      authentication_string = Base64.strict_encode64(hash2)
 
       auth_payload = {
         'op' => 1,
         'd' => {
           'rpcVersion' => 1,
-          'authentication' => auth_key
+          'authentication' => authentication_string
         }
       }
 
-      auth_message = Protocol::WebSocket::TextMessage.generate(auth_payload)
-      auth_message.send(connection)
-      connection.flush
-
-      Async do |task|
-        while message = connection.read
-          puts message.to_h
-        end
+      begin
+        auth_message = Protocol::WebSocket::TextMessage.generate(auth_payload)
+        auth_message.send(connection)
+        connection.flush
+      rescue StandardError => e
+        puts e
       end
 
-      Async do |task|
-        task.sleep 5
-        scene_name = GAMEPLAY_SCENE
-        loop do
-          scene_payload = {
-            'op' => 6,
-            'd' => {
-              'requestType' => 'SetCurrentProgramScene',
-              'requestId' => rand(1..1000).to_s,
-              'requestData' => { 'sceneName' => scene_name }
-            }
-          }
-
-          scene_message = Protocol::WebSocket::TextMessage.generate(scene_payload)
-          scene_message.send(connection)
-          connection.flush
-
-          scene_name = scene_name == GAMEPLAY_SCENE ? PAUSE_SCENE : GAMEPLAY_SCENE
-        rescue StandardError => e
-          puts e
-        end
+      while message = connection.read
+        puts message.to_h
       end
     end
-  end
 
-  private
+    # Async do |task|
+    #   task.sleep 5
+    #   scene_name = GAMEPLAY_SCENE
+    #   code = 2
+    #   loop do
+    #     scene_payload = {
+    #       'op' => code,
+    #       'd' => {
+    #         'requestType' => 'SetCurrentProgramScene',
+    #         'requestId' => rand(1..1000).to_s,
+    #         'requestData' => { 'sceneName' => scene_name }
+    #       }
+    #     }
 
-  def generate_auth(challenge, salt)
-    secret = Digest::SHA256.digest(ENV['OBS_WEBSOCKET_PASSWORD'] + salt)
-    auth_key = Digest::SHA256.digest(secret + challenge)
-    Base64.strict_encode64(auth_key)
+    #     code += 1
+
+    #     scene_message = Protocol::WebSocket::TextMessage.generate(scene_payload)
+    #     scene_message.send(connection)
+    #     connection.flush
+
+    #     scene_name = scene_name == GAMEPLAY_SCENE ? PAUSE_SCENE : GAMEPLAY_SCENE
+    #   rescue StandardError => e
+    #     puts e
+    #   end
+    # end
+    # end
   end
 end
 

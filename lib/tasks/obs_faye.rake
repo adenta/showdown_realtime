@@ -50,6 +50,8 @@ namespace :obs_faye do
             }
           }
           identify_msg['d']['authentication'] = authentication_string if authentication_string
+
+          puts identify_msg
           ws.send(identify_msg.to_json)
         when 2  # Identified
           puts 'Identified with server'
