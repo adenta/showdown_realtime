@@ -11,13 +11,11 @@ class ObsWebsocketService
   GAMEPLAY_SCENE = 'gameplay'
   PAUSE_SCENE = 'pause'
 
-  def initialize
-    @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
-  end
-
   def open_connection
+    endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
+
     Async do |task|
-      Async::WebSocket::Client.connect(@endpoint) do |connection|
+      Async::WebSocket::Client.connect(endpoint) do |connection|
         send_auth_message(connection)
 
         switch_between_scenes(connection)

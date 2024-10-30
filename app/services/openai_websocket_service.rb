@@ -4,7 +4,7 @@ require 'async'
 require 'async/http'
 require 'async/websocket'
 
-class OpenaiWebsocketService < ApplicationWebsocketService
+class OpenaiWebsocketService
   URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01'
   HEADERS = {
     'Authorization': "Bearer #{ENV.fetch('OPENAI_API_KEY', nil)}",
@@ -30,11 +30,15 @@ class OpenaiWebsocketService < ApplicationWebsocketService
     }
   }.freeze
 
-  def open_connection
-    endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
+  def initialize(inbound_message_queue, outbound_message_queue)
+    @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
+    @inbound_message_queue = inbound_message_queue
+    @outbound_message_queue = outbound_message_queue
+  end
 
+  def open_connection
     Async do
-      Async::WebSocket::Client.connect(endpoint, headers: HEADERS) do |connection|
+      Async::WebSocket::Client.connect(@endpoint, headers: HEADERS) do |connection|
         session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
         session_update_message.send(connection)
         connection.flush
@@ -47,7 +51,7 @@ class OpenaiWebsocketService < ApplicationWebsocketService
 
           next unless payload['type'] == 'response.audio.delta' && payload['delta']
 
-          @outbound_message_queue.enqueue(response['delta'])
+          enqueue_audio_delta_message
         end
       end
     end
@@ -56,7 +60,7 @@ class OpenaiWebsocketService < ApplicationWebsocketService
   def process_inbound_messages(connection)
     Async do
       loop do
-        message = inbound_message_queue.dequeue
+        message = @inbound_message_queue.dequeue
 
         raise NotImplementedError
 
@@ -67,8 +71,7 @@ class OpenaiWebsocketService < ApplicationWebsocketService
     end
   end
 
-  private
-
-  def self.construct_audio_delta_message(delta)
+  def enqueue_audio_delta_message
+    raise NotImplementedError
   end
 end
