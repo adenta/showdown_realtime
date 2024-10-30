@@ -73,5 +73,6 @@ class OpenaiWebsocketService
 
   def enqueue_audio_delta_message
     raise NotImplementedError
+    # do something here with @outbound_message_queue
   end
 end
