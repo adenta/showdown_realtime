@@ -6,6 +6,11 @@ require 'async/websocket'
 
 class PokemonShowdownWebsocketService
   URL = 'wss://sim3.psim.us/showdown/websocket'
+  AUTH_CHALLANGE_MESSAGE_IDENTIFIER = '|challstr|'
+  BATTLE_STATE_MESSAGE_IDENTIFIER = '|request|'
+  INACTIVE_MESSAGE_IDENTIFIER = '|inactive|'
+  ERROR_MESSAGE_IDENTIFIER = '|error|'
+  BAD_CHOICE_IDENTIFIER = '[Invalid choice]'
 
   def initialize(inbound_message_queue, outbound_message_queue)
     @battle_state = {}
@@ -22,12 +27,15 @@ class PokemonShowdownWebsocketService
         while message_object = connection.read
           message = message_object.buffer
 
-          send_auth_message(connection, message) if message.include?('|challstr|')
-          battle_state_handler(connection, message) if message.include?('|request|')
-          if message.include?('|inactive|') || message.include?('|error|') || message.include?('[Invalid choice]')
-            inactive_message_handler(connection,
-                                     message)
-          end
+          send_auth_message(connection, message) if message.include?(AUTH_CHALLANGE_MESSAGE_IDENTIFIER)
+          battle_state_handler(connection, message) if message.include?(BATTLE_STATE_MESSAGE_IDENTIFIER)
+
+          inactive_message = message.include?(INACTIVE_MESSAGE_IDENTIFIER)
+          error_message = message.include?(ERROR_MESSAGE_IDENTIFIER)
+          invalid_choice_message = message.include?('[Invalid choice]')
+          invoke_inactive_message_handler = inactive_message || error_message || invalid_choice_message
+
+          inactive_message_handler(connection, message) if invoke_inactive_message_handler
 
           win_or_tie_handler(connection, message) if message.include?('|win|') || message.include?('|tie|')
 
