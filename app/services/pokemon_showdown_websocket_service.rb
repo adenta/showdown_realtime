@@ -49,7 +49,41 @@ class PokemonShowdownWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
-        raise NotImplementedError
+        message_type = message[:type]
+
+        if message_type == 'choose_move'
+          next if battle_state.empty?
+
+          active_pokemon = battle_state[:state][:active]
+          first_active_pokemon = active_pokemon&.first
+
+          next unless first_active_pokemon.present?
+
+          first_active_pokemon[:moves].each_with_index do |move, i|
+            next unless move[:move] == move_name
+
+            choose_move_message = Protocol::WebSocket::TextMessage.generate("#{battle_state[:battle_id]}|/move #{i + 1}")
+            choose_move_message.send(connection)
+            connection.flush
+          end
+        elsif message_type == 'switch_pokemon'
+          next if battle_state.empty?
+
+          # pokemon is both singular and plural
+          pokemans = battle_state.dig(:side, :pokemon)
+          next unless pokemon.present?
+
+          pokemans.each_with_index do |pokemon, i|
+            next unless pokemon[:ident].include?(switch_name)
+
+            switch_pokemon_message = Protocol::WebSocket::TextMessage.generate("#{battle_state[:battle_id]}|/switch #{i + 1}")
+            switch_pokemon_message.send(connection)
+            connection.flush
+          end
+
+        else
+          raise NotImplementedError
+        end
       end
     end
   end

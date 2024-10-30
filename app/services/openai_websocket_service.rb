@@ -25,7 +25,42 @@ class OpenaiWebsocketService
       'instructions': INSTRUCTIONS,
       'modalities': %w[text audio],
       'temperature': 1,
-      "tools": [],
+      "tools": [
+        {
+          "type": 'function',
+          "name": 'choose_move',
+          "description": 'chooses a move in a game of pokemon. Only choose a move when someone suggests it.',
+          "parameters": {
+            "type": 'object',
+            "properties": {
+              "move_name": {
+                "type": 'string',
+                "description": 'the name of the move'
+              }
+            },
+            "required": [
+              'move_name'
+            ]
+          }
+        },
+        {
+          "type": 'function',
+          "name": 'switch_pokemon',
+          "description": 'switches to an active pokemon. Only choose a pokemon when someone suggests it.',
+          "parameters": {
+            "type": 'object',
+            "properties": {
+              "switch_name": {
+                "type": 'string',
+                "description": 'the name of the pokemon to switch to'
+              }
+            },
+            "required": [
+              'switch_name'
+            ]
+          }
+        }
+      ],
       "tool_choice": 'auto'
     }
   }.freeze
@@ -46,12 +81,28 @@ class OpenaiWebsocketService
         process_inbound_messages(connection)
 
         while (message = connection.read)
-          payload = JSON.parse(message)
-          puts payload
+          response = JSON.parse(message)
+          function_call = response['type'].include? 'response.function_call_arguments.done'
 
-          next unless payload['type'] == 'response.audio.delta' && payload['delta']
+          if function_call && response['name'] == 'choose_move'
+            choose_move(connection, response)
+          elsif function_call && response['name'] == 'switch_pokemon'
+            switch_pokemon(connection, response)
+          elsif response['type'] == 'response.audio.delta' && response['delta']
+            begin
+              # Base64 encoced PCM packets
+              audio_payload = response['delta']
 
-          enqueue_audio_delta_message
+              raise NotImplementedError
+
+              # if ENV['AUDIO_MODE'] == 'true'
+              #   STDOUT.write(Base64.decode64(audio_payload))
+              #   STDOUT.flush
+              # end
+            rescue StandardError => e
+              puts "Error processing audio data: #{e}"
+            end
+          end
         end
       end
     end
@@ -62,7 +113,7 @@ class OpenaiWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
-        raise NotImplementedError
+        puts message
 
         openai_message = Protocol::WebSocket::TextMessage.generate(message)
         openai_message.send(connection)
@@ -71,8 +122,19 @@ class OpenaiWebsocketService
     end
   end
 
-  def enqueue_audio_delta_message
-    raise NotImplementedError
-    # do something here with @outbound_message_queue
+  def choose_move(connection, response)
+    args = response['arguments']
+    json_args = JSON.parse(args)
+
+    move_name = json_args['move_name']
+    outbound_message_queue.enqueue({ type: 'choose_move', move_name: move_name })
+  end
+
+  def switch_pokemon(connection, response)
+    args = response['arguments']
+    json_args = JSON.parse(args)
+
+    switch_name = json_args['switch_name']
+    outbound_message_queue.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
   end
 end
