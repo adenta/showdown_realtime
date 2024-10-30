@@ -8,6 +8,7 @@ class PokemonShowdownWebsocketService
   URL = 'wss://sim3.psim.us/showdown/websocket'
 
   def initialize(inbound_message_queue, outbound_message_queue)
+    @battle_state = {}
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = inbound_message_queue
     @outbound_message_queue = outbound_message_queue
@@ -21,75 +22,14 @@ class PokemonShowdownWebsocketService
         while message_object = connection.read
           message = message_object.buffer
 
-          message_object = connection.read
-          message = message_object.buffer
-
           send_auth_message(connection, message) if message.include?('|challstr|')
-
-          if message.include?('|request|')
-            begin
-              # Extract the JSON part after the '|request|' message
-              request_index = message.index('|request|')
-
-              request_json = message[request_index + 9..-1] # Extract everything after '|request|'
-              request_json.strip
-
-              # TODO(adenta) worried this might cause problems
-              # next unless request_json
-
-              parsed_request = JSON.parse(request_json)
-              battle_id = message.split('|').first.split('>').last.chomp.strip
-              battle_state[:state] = parsed_request.deep_symbolize_keys!
-              battle_state[:battle_id] = battle_id
-              openai_ws.send({
-                "type": 'conversation.item.create',
-                "item": {
-                  "type": 'message',
-                  "role": 'user',
-                  "content": [
-                    {
-                      "type": 'input_text',
-                      "text": parsed_request.to_json
-                    }
-                  ]
-                }
-              }.to_json)
-            rescue JSON::ParserError
-              # TODO(adenta) this is an expected empty response, dont want to log
-            end
-          end
-
-          # |inactive|Time left: 150 sec this turn | 150 sec total
-          # |inactive|Time left: 70 sec this turn | 70 sec total
-          # |error|[Invalid choice]
-          # GAME_OVER_MESSAGE = "|error|[Invalid choice] Can't do anything: The game is over"
-          #   TOO_LATE_MESSAGE="|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started"
-          #   NOTHING_TO_CHOOSE = "|error|[Invalid choice] There's nothing to choose"
+          battle_state_handler(connection, message) if message.include?('|request|')
           if message.include?('|inactive|') || message.include?('|error|') || message.include?('[Invalid choice]')
-            openai_ws.send({
-              "type": 'conversation.item.create',
-              "item": {
-                "type": 'message',
-                "role": 'user',
-                "content": [
-                  {
-                    "type": 'input_text',
-                    "text": message
-                  }
-                ]
-              }
-            }.to_json)
-
-            match = message.match(/\d+ sec/)
-            next unless match
-
-            time_remaining = match[0].split(' sec').first.to_i
-            pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/choose default") if time_remaining < 91
+            inactive_message_handler(connection,
+                                     message)
           end
 
-          if message.include?('|win|') || message.include?('|tie|')
-            pokemon_showdown_ws.send('|/search gen9randombattle')
-          end
+          win_or_tie_handler(connection, message) if message.include?('|win|') || message.include?('|tie|')
 
         end
       end
@@ -129,5 +69,68 @@ class PokemonShowdownWebsocketService
     else
       puts 'Login failed'
     end
+  end
+
+  def battle_state_handler(connection, message)
+    # Extract the JSON part after the '|request|' message
+    request_index = message.index('|request|')
+
+    request_json = message[request_index + 9..-1] # Extract everything after '|request|'
+    request_json.strip
+
+    # TODO(adenta) worried this 'next' call might cause problems
+    # next unless request_json
+
+    parsed_request = JSON.parse(request_json)
+    battle_id = message.split('|').first.split('>').last.chomp.strip
+    @battle_state[:state] = parsed_request.deep_symbolize_keys!
+    @battle_state[:battle_id] = battle_id
+    @outbound_message_queue.enqueue({
+      "type": 'conversation.item.create',
+      "item": {
+        "type": 'message',
+        "role": 'user',
+        "content": [
+          {
+            "type": 'input_text',
+            "text": parsed_request.to_json
+          }
+        ]
+      }
+    }.to_json)
+  rescue JSON::ParserError
+    # TODO(adenta) this is an expected empty response, dont want to log
+  end
+
+  def inactive_message_handler(connection, message)
+    @outbound_message_queue.enqueue({
+      "type": 'conversation.item.create',
+      "item": {
+        "type": 'message',
+        "role": 'user',
+        "content": [
+          {
+            "type": 'input_text',
+            "text": message
+          }
+        ]
+      }
+    }.to_json)
+
+    match = message.match(/\d+ sec/)
+    return unless match
+
+    time_remaining = match[0].split(' sec').first.to_i
+    return if time_remaining < 91
+
+    inactive_message = Protocol::WebSocket::TextMessage.generate("#{@battle_state[:battle_id]}|/choose default")
+    inactive_message.send(connection)
+    connection.flush
+  end
+
+  def win_or_tie_handler(connection, message)
+    inactive_message = Protocol::WebSocket::TextMessage.generate('|/search gen9randombattle')
+    inactive_message.send(connection)
+    connection.flush
   end
 end

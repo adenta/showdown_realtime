@@ -1,5 +1,5 @@
-namespace :obs do
-  task switch_scenes: :environment do
+namespace :async do
+  task vibe: :environment do
     pokemon_showdown_message_queue = Async::Queue.new
     openai_message_queue = Async::Queue.new
 
