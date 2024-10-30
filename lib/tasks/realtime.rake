@@ -6,6 +6,7 @@ require 'uri'
 require 'clerk'
 require 'socket'
 require_relative '../audio_mode_helper'
+require 'osc-ruby'
 
 module TwitchConnection
   attr_accessor :access_token, :nickname, :channel, :socket
@@ -69,6 +70,8 @@ namespace :realtime do
 
   task vibe: :environment do
     battle_state = {}
+    talking_at = nil
+    client = OSC::Client.new('localhost', 39_540)
 
     clerk = Clerk::SDK.new(api_key: ENV['CLERK_SECRET_KEY'])
 
@@ -126,12 +129,12 @@ namespace :realtime do
             ],
             "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch. \nProvide some commentary of the match as it happens. \n Answer chats questions as they are asked. \n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable. When you take a members suggestion, call them out and thank them for their suggestion.",
             "voice": 'alloy',
-            "turn_detection": nil,
             "input_audio_format": 'pcm16',
             "output_audio_format": 'pcm16',
             "input_audio_transcription": {
               "model": 'whisper-1'
             },
+            "turn_detection": nil,
             "tools": [
               {
                 "type": 'function',
@@ -221,6 +224,7 @@ namespace :realtime do
             # Base64 encoced PCM packets
             audio_payload = response['delta']
 
+            talking_at = Time.zone.now
             if ENV['AUDIO_MODE'] == 'true'
               STDOUT.write(Base64.decode64(audio_payload))
               STDOUT.flush
@@ -237,6 +241,19 @@ namespace :realtime do
 
       openai_ws.on :close do |event|
         audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
+      end
+
+      EM.add_periodic_timer(0.1) do
+        if talking_at && (Time.zone.now - talking_at < 0.1.seconds)
+          variable = 'ftMouthOpen'
+          value = rand > 0.5 ? 0.01 : 0.5
+
+          puts value
+          puts variable
+
+          message = OSC::Message.new('/VMC/Ext/Blend/Val', variable, value)
+          client.send(message)
+        end
       end
 
       EM.add_periodic_timer(10) do
@@ -360,5 +377,41 @@ namespace :realtime do
   task vibe_with_audio: :environment do
     command = 'AUDIO_MODE=true rails realtime:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
     system(command)
+  end
+
+  task stream_in_realtime: :environment do
+    # ffplay -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 rtmp://localhost:1935/live/stream
+  end
+
+  task move_mouth: :environment do
+    client = OSC::Client.new('localhost', 39_540)
+    count = 0
+    loop do
+      # variables = %w[
+      #   jawOpen
+      #   mouthPucker
+      #   ftMouthEmotion
+      #   ftMouthOpen
+      #   ftMouthX
+      #   tongueOut
+      #   mouthFunnel
+      #   mouthLeft
+      #   mouthRight
+      #   cheekPuff
+      #   noseSneerLeft
+      #   noseSneerRight
+      # ]
+
+      variable = 'ftMouthOpen'
+      value = count.even? ? 0.01 : 0.5
+      count += 1
+
+      puts value
+      puts variable
+
+      message = OSC::Message.new('/VMC/Ext/Blend/Val', variable, value)
+      client.send(message)
+      sleep(0.1)
+    end
   end
 end
