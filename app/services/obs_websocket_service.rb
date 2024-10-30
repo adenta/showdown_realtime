@@ -17,6 +17,8 @@ class ObsWebsocketService
 
   def open_connection
     Async::WebSocket::Client.connect(@endpoint) do |connection|
+      scene_name = GAMEPLAY_SCENE
+
       challange_message = connection.read.to_h
 
       challenge = challange_message[:d][:authentication][:challenge]
@@ -50,34 +52,29 @@ class ObsWebsocketService
       while message = connection.read
         puts message.to_h
       end
+
+      # loop do
+      #   task.sleep 5
+
+      #   puts 'switching scenes'
+
+      #   scene_payload = {
+      #     'op' => 6,
+      #     'd' => {
+      #       'requestType' => 'SetCurrentProgramScene',
+      #       'requestData' => { 'sceneName' => scene_name }
+      #     }
+      #   }
+
+      #   scene_message = Protocol::WebSocket::TextMessage.generate(scene_payload)
+      #   scene_message.send(connection)
+      #   connection.flush
+
+      #   scene_name = scene_name == GAMEPLAY_SCENE ? PAUSE_SCENE : GAMEPLAY_SCENE
+      # rescue StandardError => e
+      #   puts e
+      # end
     end
-
-    # Async do |task|
-    #   task.sleep 5
-    #   scene_name = GAMEPLAY_SCENE
-    #   code = 2
-    #   loop do
-    #     scene_payload = {
-    #       'op' => code,
-    #       'd' => {
-    #         'requestType' => 'SetCurrentProgramScene',
-    #         'requestId' => rand(1..1000).to_s,
-    #         'requestData' => { 'sceneName' => scene_name }
-    #       }
-    #     }
-
-    #     code += 1
-
-    #     scene_message = Protocol::WebSocket::TextMessage.generate(scene_payload)
-    #     scene_message.send(connection)
-    #     connection.flush
-
-    #     scene_name = scene_name == GAMEPLAY_SCENE ? PAUSE_SCENE : GAMEPLAY_SCENE
-    #   rescue StandardError => e
-    #     puts e
-    #   end
-    # end
-    # end
   end
 end
 
