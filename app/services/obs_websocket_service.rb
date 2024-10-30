@@ -1,6 +1,9 @@
 require 'async'
 require 'async/http'
 require 'async/websocket'
+require 'openssl'
+require 'base64'
+require 'json'
 
 class ObsWebsocketService
   URL = ENV['OBS_WEBSOCKET_URL']
@@ -14,13 +17,21 @@ class ObsWebsocketService
 
   def open_connection
     Async::WebSocket::Client.connect(@endpoint) do |connection|
+      challange_message = connection.read.to_h
+
+      auth_key = generate_auth(
+        challange_message[:d][:authentication][:challenge],
+        challange_message[:d][:authentication][:salt]
+      )
+
       auth_payload = {
         'op' => 1,
         'd' => {
           'rpcVersion' => 1,
-          'authentication' => ENV['OBS_SERVER_PASSWORD']
+          'authentication' => auth_key
         }
       }
+
       auth_message = Protocol::WebSocket::TextMessage.generate(auth_payload)
       auth_message.send(connection)
       connection.flush
@@ -32,6 +43,7 @@ class ObsWebsocketService
       end
 
       Async do |task|
+        task.sleep 5
         scene_name = GAMEPLAY_SCENE
         loop do
           scene_payload = {
@@ -43,16 +55,24 @@ class ObsWebsocketService
             }
           }
 
-          p
           scene_message = Protocol::WebSocket::TextMessage.generate(scene_payload)
           scene_message.send(connection)
           connection.flush
 
           scene_name = scene_name == GAMEPLAY_SCENE ? PAUSE_SCENE : GAMEPLAY_SCENE
-          task.sleep 5
+        rescue StandardError => e
+          puts e
         end
       end
     end
+  end
+
+  private
+
+  def generate_auth(challenge, salt)
+    secret = Digest::SHA256.digest(ENV['OBS_WEBSOCKET_PASSWORD'] + salt)
+    auth_key = Digest::SHA256.digest(secret + challenge)
+    Base64.strict_encode64(auth_key)
   end
 end
 
