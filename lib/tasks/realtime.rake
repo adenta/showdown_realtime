@@ -181,10 +181,10 @@ namespace :realtime do
         response = JSON.parse(event.data)
 
         if response['type'].include? 'response.done'
-          puts "Response: #{response.dig('response', 'output', 0, 'content', 0, 'transcript')}"
+          audio_mode_puts "Response: #{response.dig('response', 'output', 0, 'content', 0, 'transcript')}"
         end
 
-        puts response if response['type'].include? 'response.function_call_arguments.done'
+        audio_mode_puts response if response['type'].include? 'response.function_call_arguments.done'
 
         if (response['type'].include? 'response.function_call_arguments.done') && response['name'] == 'choose_move'
           next if battle_state.empty?
@@ -199,8 +199,6 @@ namespace :realtime do
           next unless first_active_pokemon.present?
 
           first_active_pokemon[:moves].each_with_index do |move, i|
-            ap "#{battle_state[:battle_id]}|/move #{i + 1}"
-            raise NotImplementedError
             pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/move #{i + 1}") if move[:move] == move_name
           end
         end
@@ -246,16 +244,26 @@ namespace :realtime do
       end
 
       EM.add_periodic_timer(0.1) do
-        if talking_at && (Time.zone.now - talking_at < 0.1.seconds)
-          variable = 'ftMouthOpen'
-          value = rand > 0.5 ? 0.01 : 0.5
-
-          puts value
-          puts variable
-
-          message = OSC::Message.new('/VMC/Ext/Blend/Val', variable, value)
-          client.send(message)
+        if rand > 0.98
+          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'eyeBlinkLeft', 1.to_f))
+          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'eyeBlinkRight', 1.to_f))
+          sleep 0.15
+          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'eyeBlinkLeft', 0.to_f))
+          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'eyeBlinkRight', 0.to_f))
         end
+
+        if rand > 0.5
+          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadLeftRight', [-0.01, 0.0, 0.01].sample))
+          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadRoll', [-0.01, 0.0, 0.01].sample))
+        end
+
+        # if talking_at && (Time.zone.now - talking_at < 0.1.seconds)
+        #   variable = 'ftMouthOpen'
+        #   value = 0.5
+
+        #   message = OSC::Message.new('/VMC/Ext/Blend/Val', variable, value)
+        #   client.send(message)
+        # end
       end
 
       EM.add_periodic_timer(10) do
@@ -390,18 +398,40 @@ namespace :realtime do
     count = 0
     loop do
       # variables = %w[
-      #   jawOpen
-      #   mouthPucker
-      #   ftMouthEmotion
-      #   ftMouthOpen
-      #   ftMouthX
-      #   tongueOut
-      #   mouthFunnel
-      #   mouthLeft
-      #   mouthRight
-      #   cheekPuff
-      #   noseSneerLeft
-      #   noseSneerRight
+      #  'psHeadYaw',
+      #             'psHeadLeftRight',
+      #             'psHeadRoll',
+      #             'browDownLeft',
+      #             'browDownRight',
+      #             'ftEyeXLeft',
+      #             'ftEyeYLeft',
+      #             'ftEyeXRight',
+      #             'ftEyeYRight',
+      #             'jawOpen',
+      #             'mouthPucker',
+      #             'ftMouthEmotion',
+      #             'ftMouthOpen',
+      #             'ftMouthX',
+      #             'tongueOut',
+      #             'psLightingRed',
+      #             'psLightingGreen',
+      #             'psLightingBlue',
+      #             'ftA',
+      #             'ftHead',
+      #             'eyeBlinkLeft',
+      #             'eyeBlinkRight',
+      #             'eyeSquintLeft',
+      #             'eyeSquintRight',
+      #             'eyeWideLeft',
+      #             'eyeWideRight',
+      #             'mouthFunnel',
+      #             'mouthLeft',
+      #             'mouthRight',
+      #             'browOuterUpLeft',
+      #             'browOuterUpRight',
+      #             'cheekPuff',
+      #             'noseSneerLeft',
+      #             'noseSneerRight'
       # ]
 
       variable = 'ftMouthOpen'
