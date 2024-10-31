@@ -199,6 +199,8 @@ namespace :realtime do
           next unless first_active_pokemon.present?
 
           first_active_pokemon[:moves].each_with_index do |move, i|
+            ap "#{battle_state[:battle_id]}|/move #{i + 1}"
+            raise NotImplementedError
             pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/move #{i + 1}") if move[:move] == move_name
           end
         end

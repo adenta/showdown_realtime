@@ -93,7 +93,9 @@ class OpenaiWebsocketService
               # Base64 encoced PCM packets
               audio_payload = response['delta']
 
-              raise NotImplementedError
+              puts 'beeeeeeep'
+
+              # raise NotImplementedError
 
               # if ENV['AUDIO_MODE'] == 'true'
               #   STDOUT.write(Base64.decode64(audio_payload))
@@ -113,9 +115,7 @@ class OpenaiWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
-        puts message
-
-        openai_message = Protocol::WebSocket::TextMessage.generate(message)
+        openai_message = Protocol::WebSocket::TextMessage.generate(JSON.parse(message))
         openai_message.send(connection)
         connection.flush
       end
@@ -127,7 +127,7 @@ class OpenaiWebsocketService
     json_args = JSON.parse(args)
 
     move_name = json_args['move_name']
-    outbound_message_queue.enqueue({ type: 'choose_move', move_name: move_name })
+    @outbound_message_queue.enqueue({ type: 'choose_move', move_name: move_name })
   end
 
   def switch_pokemon(connection, response)
@@ -135,6 +135,6 @@ class OpenaiWebsocketService
     json_args = JSON.parse(args)
 
     switch_name = json_args['switch_name']
-    outbound_message_queue.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
+    @outbound_message_queue.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
   end
 end

@@ -27,6 +27,8 @@ class PokemonShowdownWebsocketService
         while message_object = connection.read
           message = message_object.buffer
 
+          puts message
+
           send_auth_message(connection, message) if message.include?(AUTH_CHALLANGE_MESSAGE_IDENTIFIER)
           battle_state_handler(connection, message) if message.include?(BATTLE_STATE_MESSAGE_IDENTIFIER)
 
@@ -49,38 +51,49 @@ class PokemonShowdownWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
+        puts message
+
         message_type = message[:type]
 
         if message_type == 'choose_move'
-          next if battle_state.empty?
+          next if @battle_state.empty?
 
-          active_pokemon = battle_state[:state][:active]
+          active_pokemon = @battle_state[:state][:active]
           first_active_pokemon = active_pokemon&.first
 
           next unless first_active_pokemon.present?
 
           first_active_pokemon[:moves].each_with_index do |move, i|
-            next unless move[:move] == move_name
+            next unless move[:move] == message[:move_name]
 
-            choose_move_message = Protocol::WebSocket::TextMessage.generate("#{battle_state[:battle_id]}|/move #{i + 1}")
+            command = "#{@battle_state[:battle_id]}|/move #{i + 1}"
+            ap command
+            choose_move_message = Protocol::WebSocket::TextMessage.generate(command)
             choose_move_message.send(connection)
             connection.flush
           end
         elsif message_type == 'switch_pokemon'
-          next if battle_state.empty?
+          next if @battle_state.empty?
 
           # pokemon is both singular and plural
-          pokemans = battle_state.dig(:side, :pokemon)
+          pokemans = @battle_state.dig(:side, :pokemon)
           next unless pokemon.present?
 
           pokemans.each_with_index do |pokemon, i|
-            next unless pokemon[:ident].include?(switch_name)
+            next unless pokemon[:ident].include?(message[:switch_name])
 
-            switch_pokemon_message = Protocol::WebSocket::TextMessage.generate("#{battle_state[:battle_id]}|/switch #{i + 1}")
+            switch_pokemon_message = Protocol::WebSocket::TextMessage.generate("#{@battle_state[:battle_id]}|/switch #{i + 1}")
             switch_pokemon_message.send(connection)
             connection.flush
           end
 
+        elsif message_type == 'default'
+
+          # command = "#{@battle_state[:battle_id]}|/choose default"
+          command = '/whois'
+          inactive_message = Protocol::WebSocket::TextMessage.generate(command)
+          inactive_message.send(connection)
+          connection.flush
         else
           raise NotImplementedError
         end
@@ -160,7 +173,7 @@ class PokemonShowdownWebsocketService
     }.to_json)
 
     match = message.match(/\d+ sec/)
-    return unless match
+    return if match.blank? || @battle_state.empty?
 
     time_remaining = match[0].split(' sec').first.to_i
     return if time_remaining < 91
