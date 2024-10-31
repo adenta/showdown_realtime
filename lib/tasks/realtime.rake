@@ -257,13 +257,13 @@ namespace :realtime do
           client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadRoll', [-0.01, 0.0, 0.01].sample))
         end
 
-        # if talking_at && (Time.zone.now - talking_at < 0.1.seconds)
-        #   variable = 'ftMouthOpen'
-        #   value = 0.5
+        if talking_at && (Time.zone.now - talking_at < 0.1.seconds)
+          variable = 'ftMouthOpen'
+          value = 0.5
 
-        #   message = OSC::Message.new('/VMC/Ext/Blend/Val', variable, value)
-        #   client.send(message)
-        # end
+          message = OSC::Message.new('/VMC/Ext/Blend/Val', variable, value)
+          client.send(message)
+        end
       end
 
       EM.add_periodic_timer(10) do
