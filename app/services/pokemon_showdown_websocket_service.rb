@@ -24,7 +24,7 @@ class PokemonShowdownWebsocketService
       Async::WebSocket::Client.connect(@endpoint) do |connection|
         process_inbound_messages(connection)
 
-        while message_object = connection.read
+        while (message_object = connection.read)
           message = message_object.buffer
 
           puts message
@@ -51,11 +51,10 @@ class PokemonShowdownWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
-        puts message
-
         message_type = message[:type]
 
-        if message_type == 'choose_move'
+        case message_type
+        when 'choose_move'
           next if @battle_state.empty?
 
           active_pokemon = @battle_state[:state][:active]
@@ -67,12 +66,11 @@ class PokemonShowdownWebsocketService
             next unless move[:move] == message[:move_name]
 
             command = "#{@battle_state[:battle_id]}|/move #{i + 1}"
-            ap command
-            choose_move_message = Protocol::WebSocket::TextMessage.generate(command)
+            choose_move_message = Protocol::WebSocket::TextMessage.new(command)
             choose_move_message.send(connection)
             connection.flush
           end
-        elsif message_type == 'switch_pokemon'
+        when 'switch_pokemon'
           next if @battle_state.empty?
 
           # pokemon is both singular and plural
@@ -82,16 +80,15 @@ class PokemonShowdownWebsocketService
           pokemans.each_with_index do |pokemon, i|
             next unless pokemon[:ident].include?(message[:switch_name])
 
-            switch_pokemon_message = Protocol::WebSocket::TextMessage.generate("#{@battle_state[:battle_id]}|/switch #{i + 1}")
+            switch_pokemon_message = Protocol::WebSocket::TextMessage.new("#{@battle_state[:battle_id]}|/switch #{i + 1}")
             switch_pokemon_message.send(connection)
             connection.flush
           end
 
-        elsif message_type == 'default'
+        when 'default'
 
-          # command = "#{@battle_state[:battle_id]}|/choose default"
-          command = '/whois'
-          inactive_message = Protocol::WebSocket::TextMessage.generate(command)
+          command = "#{@battle_state[:battle_id]}|/choose default"
+          inactive_message = Protocol::WebSocket::TextMessage.new(command)
           inactive_message.send(connection)
           connection.flush
         else
@@ -117,7 +114,7 @@ class PokemonShowdownWebsocketService
     assertion = body['assertion']
 
     if assertion
-      auth_message = Protocol::WebSocket::TextMessage.generate("|/trn #{ENV['POKE_USER']},0,#{assertion}")
+      auth_message = Protocol::WebSocket::TextMessage.new("|/trn #{ENV['POKE_USER']},0,#{assertion}")
       auth_message.send(connection)
       connection.flush
       puts "Logged in as #{ENV['POKE_USER']}"
@@ -126,11 +123,11 @@ class PokemonShowdownWebsocketService
     end
   end
 
-  def battle_state_handler(connection, message)
+  def battle_state_handler(_connection, message)
     # Extract the JSON part after the '|request|' message
     request_index = message.index('|request|')
 
-    request_json = message[request_index + 9..-1] # Extract everything after '|request|'
+    request_json = message[request_index + 9..] # Extract everything after '|request|'
     request_json.strip
 
     # TODO(adenta) worried this 'next' call might cause problems
@@ -178,13 +175,13 @@ class PokemonShowdownWebsocketService
     time_remaining = match[0].split(' sec').first.to_i
     return if time_remaining < 91
 
-    inactive_message = Protocol::WebSocket::TextMessage.generate("#{@battle_state[:battle_id]}|/choose default")
+    inactive_message = Protocol::WebSocket::TextMessage.new("#{@battle_state[:battle_id]}|/choose default")
     inactive_message.send(connection)
     connection.flush
   end
 
-  def win_or_tie_handler(connection, message)
-    inactive_message = Protocol::WebSocket::TextMessage.generate('|/search gen9randombattle')
+  def win_or_tie_handler(connection, _message)
+    inactive_message = Protocol::WebSocket::TextMessage.new('|/search gen9randombattle')
     inactive_message.send(connection)
     connection.flush
   end

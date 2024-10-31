@@ -200,6 +200,9 @@ namespace :realtime do
 
           first_active_pokemon[:moves].each_with_index do |move, i|
             pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/move #{i + 1}") if move[:move] == move_name
+            openai_ws.send({
+              "type": 'response.create'
+            }.to_json)
           end
         end
 
@@ -213,9 +216,12 @@ namespace :realtime do
           next unless pokemon.present?
 
           pokemon.each_with_index do |pokemon, i|
-            if pokemon[:ident].include?(switch_name)
-              pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}")
-            end
+            next unless pokemon[:ident].include?(switch_name)
+
+            pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/switch #{i + 1}")
+            openai_ws.send({
+              "type": 'response.create'
+            }.to_json)
           end
         end
 
@@ -267,14 +273,14 @@ namespace :realtime do
       end
 
       EM.add_periodic_timer(10) do
-        audio_mode_puts 'creating a response'
-        # openai_ws.send({
-        #   "type": 'response.cancel'
-        # }.to_json)
+        # audio_mode_puts 'creating a response'
+        # # openai_ws.send({
+        # #   "type": 'response.cancel'
+        # # }.to_json)
 
-        openai_ws.send({
-          "type": 'response.create'
-        }.to_json)
+        # openai_ws.send({
+        #   "type": 'response.create'
+        # }.to_json)
 
         pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/timer on")
       end
@@ -385,7 +391,7 @@ namespace :realtime do
   end
 
   task vibe_with_audio: :environment do
-    command = 'AUDIO_MODE=true rails realtime:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
+    command = 'AUDIO_MODE=true rails realtime:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
     system(command)
   end
 
