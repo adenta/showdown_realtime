@@ -7,15 +7,17 @@ require 'json'
 
 class ObsWebsocketService
   URL = ENV['OBS_WEBSOCKET_URL']
-
   GAMEPLAY_SCENE = 'gameplay'
   PAUSE_SCENE = 'pause'
 
   def initialize
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
+    @logger = ColorLogger.new($stdout)
+    @logger.progname = 'OBS'
   end
 
   def open_connection
+    @logger.info 'hello'
     Async do |task|
       Async::WebSocket::Client.connect(@endpoint) do |connection|
         send_auth_message(connection)
@@ -28,8 +30,8 @@ class ObsWebsocketService
       ensure
         task&.stop
       end
-    rescue Errno::ECONNREFUSED
-      puts "OBS isn't running"
+    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
+      @logger.info "OBS isn't running"
     end
   end
 

@@ -39,4 +39,18 @@ namespace :async do
       end
     end
   end
+
+  task stdin_testing: :environment do
+    Async do |task|
+      ObsWebsocketService.new.open_connection
+
+      reader = IO::Stream::Buffered.new($stdin)
+
+      task.async do
+        while (line = reader.read_until("\n"))
+          puts "Received: #{line.strip}"
+        end
+      end
+    end
+  end
 end

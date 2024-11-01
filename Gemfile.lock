@@ -296,6 +296,7 @@ DEPENDENCIES
   dotenv
   faker
   faye-websocket
+  io-stream
   osc-ruby
   pg (~> 1.1)
   puma (>= 5.0)
