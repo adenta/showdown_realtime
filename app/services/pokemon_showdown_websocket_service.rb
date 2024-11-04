@@ -53,7 +53,7 @@ class PokemonShowdownWebsocketService
     Async do
       loop do
         message = @inbound_message_queue.dequeue
-
+        @logger.info message
         message_type = message[:type]
 
         case message_type
@@ -74,10 +74,14 @@ class PokemonShowdownWebsocketService
             connection.flush
           end
         when 'switch_pokemon'
+          @logger.info 'switch pokemon message received'
+          @logger.info @battle_state.class
+          @logger.info @battle_state.dig(:state, :side)
+          @logger.info @battle_state.dig(:state, :side, :pokemon)
           next if @battle_state.empty?
 
           # pokemon is both singular and plural
-          pokemans = @battle_state.dig(:side, :pokemon)
+          pokemans = @battle_state.dig(:state, :side, :pokemon)
           next unless pokemans.present?
 
           pokemans.each_with_index do |pokemon, i|

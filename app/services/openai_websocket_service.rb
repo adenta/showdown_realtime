@@ -69,7 +69,7 @@ class OpenaiWebsocketService
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = inbound_message_queue
     @outbound_message_queue = outbound_message_queue
-    log_filename = Rails.root.join('log', "demo.log")
+    log_filename = Rails.root.join('log', 'demo.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OPENAI'
   end
@@ -134,6 +134,7 @@ class OpenaiWebsocketService
   end
 
   def switch_pokemon(connection, response)
+    @logger.info 'switching pokemon'
     args = response['arguments']
     json_args = JSON.parse(args)
 
