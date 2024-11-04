@@ -9,16 +9,16 @@ class OpenaiWebsocketService
   HEADERS = {
     'Authorization': "Bearer #{ENV.fetch('OPENAI_API_KEY', nil)}",
     'OpenAI-Beta': 'realtime=v1'
-  }.freeze
+  }
 
-  INSTRUCTIONS = 'You are a helpful assistant'
+  INSTRUCTIONS = 'You are a streamer playing a game of pokemon. When someone suggests a move, Chat with the audiance with some commentary about the game you are playing.'
 
   SESSION_UPDATE = {
     'type': 'session.update',
     'session': {
-      "turn_detection": {
-        "type": 'server_vad'
-      },
+      # "turn_detection": {
+      #   "type": 'server_vad'
+      # },
       'input_audio_format': 'g711_ulaw',
       'output_audio_format': 'g711_ulaw',
       'voice': 'alloy',
@@ -85,6 +85,9 @@ class OpenaiWebsocketService
 
         while (message = connection.read)
           response = JSON.parse(message)
+
+          @logger.info response['type']
+
           function_call = response['type'].include? 'response.function_call_arguments.done'
 
           if function_call && response['name'] == 'choose_move'

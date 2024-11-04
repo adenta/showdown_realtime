@@ -30,8 +30,6 @@ class PokemonShowdownWebsocketService
         while (message_object = connection.read)
           message = message_object.buffer
 
-          @logger.info message
-
           send_auth_message(connection, message) if message.include?(AUTH_CHALLANGE_MESSAGE_IDENTIFIER)
           battle_state_handler(connection, message) if message.include?(BATTLE_STATE_MESSAGE_IDENTIFIER)
 
@@ -53,7 +51,6 @@ class PokemonShowdownWebsocketService
     Async do
       loop do
         message = @inbound_message_queue.dequeue
-        @logger.info message
         message_type = message[:type]
 
         case message_type
@@ -74,10 +71,6 @@ class PokemonShowdownWebsocketService
             connection.flush
           end
         when 'switch_pokemon'
-          @logger.info 'switch pokemon message received'
-          @logger.info @battle_state.class
-          @logger.info @battle_state.dig(:state, :side)
-          @logger.info @battle_state.dig(:state, :side, :pokemon)
           next if @battle_state.empty?
 
           # pokemon is both singular and plural
@@ -137,14 +130,11 @@ class PokemonShowdownWebsocketService
     request_json = message[request_index + 9..] # Extract everything after '|request|'
     request_json.strip
 
-    @logger.info request_json
-
     # TODO(adenta) worried this 'next' call might cause problems
     # next unless request_json
 
     parsed_request = JSON.parse(request_json)
     battle_id = message.split('|').first.split('>').last.chomp.strip
-    @logger.info battle_id
 
     @battle_state[:state] = parsed_request.deep_symbolize_keys!
     @battle_state[:battle_id] = battle_id
