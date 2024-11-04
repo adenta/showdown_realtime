@@ -12,20 +12,13 @@ class ObsWebsocketService
 
   def initialize
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
-    log_filename = Rails.root.join('log', "demo.log")
+    log_filename = Rails.root.join('log', 'demo.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OBS'
   end
 
   def open_connection
-    @logger.info 'hello'
     Async do |task|
-      task.async do
-        loop do
-          @logger.info Time.zone.now
-          task.sleep 1
-        end
-      end
       Async::WebSocket::Client.connect(@endpoint) do |connection|
         send_auth_message(connection)
 

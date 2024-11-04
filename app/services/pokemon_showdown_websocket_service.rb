@@ -17,7 +17,7 @@ class PokemonShowdownWebsocketService
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = inbound_message_queue
     @outbound_message_queue = outbound_message_queue
-    log_filename = Rails.root.join('log', "demo.log")
+    log_filename = Rails.root.join('log', 'demo.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'PKMN'
   end
@@ -133,11 +133,15 @@ class PokemonShowdownWebsocketService
     request_json = message[request_index + 9..] # Extract everything after '|request|'
     request_json.strip
 
+    @logger.info request_json
+
     # TODO(adenta) worried this 'next' call might cause problems
     # next unless request_json
 
     parsed_request = JSON.parse(request_json)
     battle_id = message.split('|').first.split('>').last.chomp.strip
+    @logger.info battle_id
+
     @battle_state[:state] = parsed_request.deep_symbolize_keys!
     @battle_state[:battle_id] = battle_id
     @outbound_message_queue.enqueue({
@@ -176,7 +180,7 @@ class PokemonShowdownWebsocketService
     return if match.blank? || @battle_state.empty?
 
     time_remaining = match[0].split(' sec').first.to_i
-    return if time_remaining < 91
+    return if time_remaining > 91
 
     inactive_message = Protocol::WebSocket::TextMessage.new("#{@battle_state[:battle_id]}|/choose default")
     inactive_message.send(connection)
