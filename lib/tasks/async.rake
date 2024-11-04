@@ -2,7 +2,9 @@ namespace :async do
   task vibe: :environment do
     pokemon_showdown_message_queue = Async::Queue.new
     openai_message_queue = Async::Queue.new
-    reader = IO::Stream::Buffered.new($stdin)
+    file_path = Rails.root.join('log', 'commands.log')
+    file = File.open(file_path, 'r')
+    file.seek(0, IO::SEEK_END) # Move to the end of the file
 
     Async do |task|
       ObsWebsocketService.new.open_connection
@@ -18,25 +20,30 @@ namespace :async do
       ).open_connection
 
       task.async do
-        while (line = reader.read_until("\n"))
-          puts "Received: #{line.strip}"
+        loop do
+          line = file.gets
+          if line
+            puts "Received: #{line.strip}"
 
-          openai_message_queue.enqueue({
-            "type": 'conversation.item.create',
-            "item": {
-              "type": 'message',
-              "role": 'user',
-              "content": [
-                {
-                  "type": 'input_text',
-                  "text": "chairlaw: #{line.strip}"
-                }
-              ]
-            }
-          }.to_json)
-          openai_message_queue.enqueue({
-            "type": 'response.create'
-          }.to_json)
+            openai_message_queue.enqueue({
+              "type": 'conversation.item.create',
+              "item": {
+                "type": 'message',
+                "role": 'user',
+                "content": [
+                  {
+                    "type": 'input_text',
+                    "text": "chairlaw: #{line.strip}"
+                  }
+                ]
+              }
+            }.to_json)
+            openai_message_queue.enqueue({
+              "type": 'response.create'
+            }.to_json)
+          else
+            task.sleep 1 # Sleep for a second if no new line is found
+          end
         end
       end
     end
@@ -89,7 +96,7 @@ namespace :async do
 
   task read_from_file: :environment do
     Async do |task|
-      file_path = Rails.root.join('log', 'outputtest.log')
+      file_path = Rails.root.join('log', 'commands.log')
       file = File.open(file_path, 'r')
       file.seek(0, IO::SEEK_END) # Move to the end of the file
 
@@ -108,12 +115,15 @@ namespace :async do
 
   task write_to_file: :environment do
     Async do |task|
-      file_path = Rails.root.join('log', 'outputtest.log')
+      file_path = Rails.root.join('log', 'commands.log')
       File.open(file_path, 'a') do |file|
         loop do
-          file.puts Time.zone.now
+          puts "Enter a message to log (or type 'exit' to quit):"
+          input = STDIN.gets.strip
+          break if input.downcase == 'exit'
+
+          file.puts input
           file.flush
-          task.sleep 1
         end
       end
     end
