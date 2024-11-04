@@ -49,7 +49,7 @@ namespace :async do
   end
 
   task vibe_over_stdout: :environment do
-    command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
+    command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -strict experimental -analyzeduration 0 -probesize 32 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
     system(command)
   end
 

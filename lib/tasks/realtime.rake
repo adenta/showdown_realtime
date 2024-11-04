@@ -272,15 +272,29 @@ namespace :realtime do
         end
       end
 
-      EM.add_periodic_timer(10) do
-        # audio_mode_puts 'creating a response'
-        # # openai_ws.send({
-        # #   "type": 'response.cancel'
-        # # }.to_json)
-
+      EM.add_periodic_timer(5) do
+        audio_mode_puts 'creating a response'
         # openai_ws.send({
-        #   "type": 'response.create'
+        #   "type": 'response.cancel'
         # }.to_json)
+        #
+        openai_ws.send({
+          "type": 'conversation.item.create',
+          "item": {
+            "type": 'message',
+            "role": 'user',
+            "content": [
+              {
+                "type": 'input_text',
+                "text": 'whats your favorite pokemon'
+              }
+            ]
+          }
+        }.to_json)
+
+        openai_ws.send({
+          "type": 'response.create'
+        }.to_json)
 
         pokemon_showdown_ws.send("#{battle_state[:battle_id]}|/timer on")
       end
