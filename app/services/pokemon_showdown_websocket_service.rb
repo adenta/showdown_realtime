@@ -78,7 +78,7 @@ class PokemonShowdownWebsocketService
 
           # pokemon is both singular and plural
           pokemans = @battle_state.dig(:side, :pokemon)
-          next unless pokemon.present?
+          next unless pokemans.present?
 
           pokemans.each_with_index do |pokemon, i|
             next unless pokemon[:ident].include?(message[:switch_name])
@@ -181,6 +181,10 @@ class PokemonShowdownWebsocketService
 
     time_remaining = match[0].split(' sec').first.to_i
     return if time_remaining > 91
+
+    puts "Not sending a message even though time remaining is #{time_remaining}"
+
+    return
 
     inactive_message = Protocol::WebSocket::TextMessage.new("#{@battle_state[:battle_id]}|/choose default")
     inactive_message.send(connection)
