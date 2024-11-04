@@ -23,7 +23,6 @@ namespace :async do
         loop do
           line = file.gets
           if line
-            puts "Received: #{line.strip}"
 
             openai_message_queue.enqueue({
               "type": 'conversation.item.create',
@@ -86,34 +85,10 @@ namespace :async do
           end
         end
       end
-
-      task.async do
-        puts Time.zone.now
-        task.sleep 1
-      end
     end
   end
 
-  task read_from_file: :environment do
-    Async do |task|
-      file_path = Rails.root.join('log', 'commands.log')
-      file = File.open(file_path, 'r')
-      file.seek(0, IO::SEEK_END) # Move to the end of the file
-
-      task.async do
-        loop do
-          line = file.gets
-          if line
-            puts "New line: #{line.strip}"
-          else
-            task.sleep 1 # Sleep for a second if no new line is found
-          end
-        end
-      end
-    end
-  end
-
-  task write_to_file: :environment do
+  task send_commands: :environment do
     Async do |task|
       file_path = Rails.root.join('log', 'commands.log')
       File.open(file_path, 'a') do |file|

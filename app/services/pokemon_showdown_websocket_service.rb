@@ -176,7 +176,7 @@ class PokemonShowdownWebsocketService
     time_remaining = match[0].split(' sec').first.to_i
     return if time_remaining > 91
 
-    puts "Not sending a message even though time remaining is #{time_remaining}"
+    @logger.info "Not sending a message even though time remaining is #{time_remaining}"
 
     return
 
