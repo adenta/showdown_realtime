@@ -69,6 +69,9 @@ class OpenaiWebsocketService
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = inbound_message_queue
     @outbound_message_queue = outbound_message_queue
+    log_filename = Rails.root.join('log', "demo.log")
+    @logger = ColorLogger.new(log_filename)
+    @logger.progname = 'OPENAI'
   end
 
   def open_connection
@@ -102,7 +105,7 @@ class OpenaiWebsocketService
               #   STDOUT.flush
               # end
             rescue StandardError => e
-              puts "Error processing audio data: #{e}"
+              @logger.info "Error processing audio data: #{e}"
             end
           end
         end

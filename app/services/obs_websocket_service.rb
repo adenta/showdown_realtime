@@ -12,7 +12,7 @@ class ObsWebsocketService
 
   def initialize
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
-    log_filename = Rails.root.join('log', "obs_#{Time.now.strftime('%Y%m%d%H%M%S')}.log")
+    log_filename = Rails.root.join('log', "demo.log")
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OBS'
   end
@@ -32,7 +32,7 @@ class ObsWebsocketService
         switch_between_scenes(connection)
 
         while message = connection.read
-          puts message.to_h
+          @logger.info message.to_h
         end
       ensure
         task&.stop
@@ -72,7 +72,7 @@ class ObsWebsocketService
       auth_message.send(connection)
       connection.flush
     rescue StandardError => e
-      puts e
+      @logger.info e
     end
   end
 

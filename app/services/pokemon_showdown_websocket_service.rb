@@ -17,6 +17,9 @@ class PokemonShowdownWebsocketService
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = inbound_message_queue
     @outbound_message_queue = outbound_message_queue
+    log_filename = Rails.root.join('log', "demo.log")
+    @logger = ColorLogger.new(log_filename)
+    @logger.progname = 'PKMN'
   end
 
   def open_connection
@@ -27,7 +30,7 @@ class PokemonShowdownWebsocketService
         while (message_object = connection.read)
           message = message_object.buffer
 
-          puts message
+          @logger.info message
 
           send_auth_message(connection, message) if message.include?(AUTH_CHALLANGE_MESSAGE_IDENTIFIER)
           battle_state_handler(connection, message) if message.include?(BATTLE_STATE_MESSAGE_IDENTIFIER)
@@ -117,9 +120,9 @@ class PokemonShowdownWebsocketService
       auth_message = Protocol::WebSocket::TextMessage.new("|/trn #{ENV['POKE_USER']},0,#{assertion}")
       auth_message.send(connection)
       connection.flush
-      puts "Logged in as #{ENV['POKE_USER']}"
+      @logger.info "Logged in as #{ENV['POKE_USER']}"
     else
-      puts 'Login failed'
+      @logger.info 'Login failed'
     end
   end
 
