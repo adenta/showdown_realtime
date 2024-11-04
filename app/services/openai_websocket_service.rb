@@ -99,14 +99,10 @@ class OpenaiWebsocketService
               # Base64 encoced PCM packets
               audio_payload = response['delta']
 
-              puts 'beeeep'
-
-              # raise NotImplementedError
-
-              # if ENV['AUDIO_MODE'] == 'true'
-              #   STDOUT.write(Base64.decode64(audio_payload))
-              #   STDOUT.flush
-              # end
+              if ENV['SEND_AUDIO_TO_STDOUT'] == 'true'
+                STDOUT.write(Base64.decode64(audio_payload))
+                STDOUT.flush
+              end
             rescue StandardError => e
               @logger.info "Error processing audio data: #{e}"
             end

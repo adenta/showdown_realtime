@@ -48,44 +48,9 @@ namespace :async do
     end
   end
 
-  # lib/tasks/fiber_stream.rake
-
-  task stream: :environment do
-    fiber = Fiber.new do
-      data_to_send = %W[part1\n part2\n part3\n]
-      data_to_send.each { |data| Fiber.yield(data) }
-    end
-
-    Async do
-      File.open(Rails.root.join('log', 'outputtest.log'), 'a') do |file|
-        while fiber.alive?
-          data = fiber.resume
-          file.write(data)
-          file.flush
-          Async::Task.current.sleep 1
-        end
-      end
-    end
-  end
-
-  task audio: :environment do
-    Async do |task|
-      task.async do
-        IO.popen(['ffmpeg', '-f', 'lavfi', '-i', 'anoisesrc=d=10:c=pink', '-f', 'wav', 'pipe:1'],
-                 'r') do |ffmpeg_io|
-          IO.popen(
-            ['ffmpeg', '-f', 's16le', '-ar', '24000', '-ac', '1', '-readrate', '1', '-fflags', 'nobuffer', '-flags', 'low_delay',
-             '-strict', 'experimental', '-analyzeduration', '0', '-probesize', '32', '-i', 'pipe:0', '-c:a', 'aac', '-ar', '44100', '-ac', '1', '-f', 'flv', 'rtmp://localhost:1935/live/stream'], 'w'
-          ) do |output_io|
-            output_io.binmode # Ensures binary mode, avoiding encoding errors
-            while (chunk = ffmpeg_io.read(4096))
-              output_io.write(chunk)
-              output_io.flush
-            end
-          end
-        end
-      end
-    end
+  task vibe_over_stdout: :environment do
+    command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
+    system(command)
   end
 
   task send_commands: :environment do
