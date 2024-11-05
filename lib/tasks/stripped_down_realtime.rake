@@ -3,67 +3,9 @@ require 'json'
 require 'base64'
 require 'net/http'
 require 'uri'
-require 'clerk'
 require 'socket'
 require_relative '../audio_mode_helper'
 require 'osc-ruby'
-
-module TwitchConnection
-  attr_accessor :access_token, :nickname, :channel, :socket
-
-  def initialize(access_token, nickname, channel, openai_ws)
-    @access_token = access_token
-    @nickname = nickname
-    @channel = channel
-    @socket = nil
-    @openai_ws = openai_ws
-  end
-
-  def post_init
-    # Send credentials
-    send_data "PASS oauth:#{@access_token}\r\n"
-    send_data "NICK #{@nickname}\r\n"
-    send_data "JOIN #{@channel}\r\n"
-  end
-
-  def receive_data(data)
-    data.each_line do |line|
-      sent_by, body = line.strip.split('#').last&.split(' :')
-
-      if sent_by && body && line.include?('PRIVMSG')
-        audio_mode_puts sent_by
-        audio_mode_puts body
-
-        @openai_ws.send({
-          "type": 'conversation.item.create',
-          "item": {
-            "type": 'message',
-            "role": 'user',
-            "content": [
-              {
-                "type": 'input_text',
-                "text": "#{sent_by}: #{body}"
-              }
-            ]
-          }
-        }.to_json)
-
-      else
-        audio_mode_puts 'no body or sent by found'
-      end
-
-      # Respond to PING to stay connected
-      send_data 'PONG :tmi.twitch.tv\r\n' if line.start_with?('PING')
-    end
-  rescue StandardError => e
-    audio_mode_puts "Error: #{e.message}"
-    audio_mode_puts e.backtrace.join("\n")
-  end
-
-  def unbind
-    EM.stop
-  end
-end
 
 namespace :stripped_down_realtime do
   include AudioModeHelper
@@ -72,15 +14,6 @@ namespace :stripped_down_realtime do
     battle_state = {}
     talking_at = nil
     client = OSC::Client.new('localhost', 39_540)
-
-    clerk = Clerk::SDK.new(api_key: ENV['CLERK_SECRET_KEY'])
-
-    # Fetch OAuth token for Twitch
-    access_token = clerk.users.oauth_access_token(ENV['CLERK_USER_ID'], 'twitch').first['token']
-    nickname = 'adetna'
-    channel = '#adetna'
-    server = 'irc.chat.twitch.tv'
-    port = 6667
 
     EM.run do
       openai_ws = Faye::WebSocket::Client.new(
@@ -95,8 +28,6 @@ namespace :stripped_down_realtime do
       pokemon_showdown_ws = Faye::WebSocket::Client.new(
         'wss://sim3.psim.us/showdown/websocket'
       )
-
-      EM.connect(server, port, TwitchConnection, access_token, nickname, channel, openai_ws)
 
       EM.defer do
         loop do
