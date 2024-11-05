@@ -68,4 +68,34 @@ namespace :async do
       end
     end
   end
+
+  namespace :async do
+    desc 'Run Async task with EM.defer and Async::Queue, printing the time every second'
+    task run_with_em: :environment do
+      queue = Async::Queue.new
+      log_filename = Rails.root.join('log', 'demo.log')
+      @logger = ColorLogger.new(log_filename)
+      @logger.progname = 'CONSOLE'
+
+      EM.run do
+        EM.defer do
+          Async do |task|
+            task.async do
+              loop do
+                queue.enqueue(Time.zone.now)
+                task.sleep 1
+              end
+            end
+            loop do
+              @logger.info 'checking tasks'
+
+              @logger.info queue.dequeue
+
+              task.sleep 1
+            end
+          end
+        end
+      end
+    end
+  end
 end
