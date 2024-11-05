@@ -1,7 +1,7 @@
-namespace :async do
+namespace :faye do
   task vibe: :environment do
-    pokemon_showdown_message_queue = Async::Queue.new
-    openai_message_queue = Async::Queue.new
+    pokemon_showdown_message_queue = []
+    openai_message_queue = []
     file_path = Rails.root.join('log', 'commands.log')
     file = File.open(file_path, 'r')
     file.seek(0, IO::SEEK_END) # Move to the end of the file
@@ -9,25 +9,23 @@ namespace :async do
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'CONSOLE'
 
-    Async do |task|
-      ObsWebsocketService.new.open_connection
-
-      OpenaiWebsocketService.new(
+    EM.run do
+      OpenaiWebsocketServiceFaye.new(
         openai_message_queue,
         pokemon_showdown_message_queue
       ).open_connection
 
-      PokemonShowdownWebsocketService.new(
+      PokemonShowdownWebsocketServiceFaye.new(
         pokemon_showdown_message_queue,
         openai_message_queue
       ).open_connection
 
-      task.async do
+      EM.defer do
         loop do
           line = file.gets
           if line
 
-            openai_message_queue.enqueue({
+            openai_message_queue << ({
               "type": 'conversation.item.create',
               "item": {
                 "type": 'message',
@@ -40,11 +38,11 @@ namespace :async do
                 ]
               }
             }.to_json)
-            openai_message_queue.enqueue({
+            openai_message_queue << ({
               "type": 'response.create'
             }.to_json)
           else
-            task.sleep 1 # Sleep for a second if no new line is found
+            sleep 1 # Sleep for a second if no new line is found
           end
         end
       end
