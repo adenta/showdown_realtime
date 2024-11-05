@@ -5,15 +5,12 @@ require 'net/http'
 require 'uri'
 require 'socket'
 require_relative '../audio_mode_helper'
-require 'osc-ruby'
 
 namespace :stripped_down_realtime do
   include AudioModeHelper
 
   task vibe: :environment do
     battle_state = {}
-    talking_at = nil
-    client = OSC::Client.new('localhost', 39_540)
 
     EM.run do
       openai_ws = Faye::WebSocket::Client.new(
@@ -161,7 +158,6 @@ namespace :stripped_down_realtime do
             # Base64 encoced PCM packets
             audio_payload = response['delta']
 
-            talking_at = Time.zone.now
             if ENV['AUDIO_MODE'] == 'true'
               STDOUT.write(Base64.decode64(audio_payload))
               STDOUT.flush
@@ -178,29 +174,6 @@ namespace :stripped_down_realtime do
 
       openai_ws.on :close do |event|
         audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
-      end
-
-      EM.add_periodic_timer(0.1) do
-        if rand > 0.98
-          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'eyeBlinkLeft', 1.to_f))
-          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'eyeBlinkRight', 1.to_f))
-          sleep 0.15
-          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'eyeBlinkLeft', 0.to_f))
-          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'eyeBlinkRight', 0.to_f))
-        end
-
-        if rand > 0.5
-          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadLeftRight', [-0.01, 0.0, 0.01].sample))
-          client.send(OSC::Message.new('/VMC/Ext/Blend/Val', 'psHeadRoll', [-0.01, 0.0, 0.01].sample))
-        end
-
-        if talking_at && (Time.zone.now - talking_at < 0.1.seconds)
-          variable = 'ftMouthOpen'
-          value = 0.5
-
-          message = OSC::Message.new('/VMC/Ext/Blend/Val', variable, value)
-          client.send(message)
-        end
       end
 
       EM.add_periodic_timer(5) do
@@ -336,65 +309,7 @@ namespace :stripped_down_realtime do
   end
 
   task vibe_with_audio: :environment do
-    command = 'AUDIO_MODE=true rails realtime:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
+    command = 'AUDIO_MODE=true rails stripped_down_realtime:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
     system(command)
-  end
-
-  task stream_in_realtime: :environment do
-    # ffplay -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 rtmp://localhost:1935/live/stream
-  end
-
-  task move_mouth: :environment do
-    client = OSC::Client.new('localhost', 39_540)
-    count = 0
-    loop do
-      # variables = %w[
-      #  'psHeadYaw',
-      #             'psHeadLeftRight',
-      #             'psHeadRoll',
-      #             'browDownLeft',
-      #             'browDownRight',
-      #             'ftEyeXLeft',
-      #             'ftEyeYLeft',
-      #             'ftEyeXRight',
-      #             'ftEyeYRight',
-      #             'jawOpen',
-      #             'mouthPucker',
-      #             'ftMouthEmotion',
-      #             'ftMouthOpen',
-      #             'ftMouthX',
-      #             'tongueOut',
-      #             'psLightingRed',
-      #             'psLightingGreen',
-      #             'psLightingBlue',
-      #             'ftA',
-      #             'ftHead',
-      #             'eyeBlinkLeft',
-      #             'eyeBlinkRight',
-      #             'eyeSquintLeft',
-      #             'eyeSquintRight',
-      #             'eyeWideLeft',
-      #             'eyeWideRight',
-      #             'mouthFunnel',
-      #             'mouthLeft',
-      #             'mouthRight',
-      #             'browOuterUpLeft',
-      #             'browOuterUpRight',
-      #             'cheekPuff',
-      #             'noseSneerLeft',
-      #             'noseSneerRight'
-      # ]
-
-      variable = 'ftMouthOpen'
-      value = count.even? ? 0.01 : 0.5
-      count += 1
-
-      puts value
-      puts variable
-
-      message = OSC::Message.new('/VMC/Ext/Blend/Val', variable, value)
-      client.send(message)
-      sleep(0.1)
-    end
   end
 end
