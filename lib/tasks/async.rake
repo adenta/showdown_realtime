@@ -9,7 +9,7 @@ namespace :async do
     Async do |task|
       ObsWebsocketService.new.open_connection
 
-      OpenaiWebsocketService.new(
+      OpenaiWebsocketServiceFaye.new(
         openai_message_queue,
         pokemon_showdown_message_queue
       ).open_connection
