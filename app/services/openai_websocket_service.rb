@@ -19,8 +19,8 @@ class OpenaiWebsocketService
       # "turn_detection": {
       #   "type": 'server_vad'
       # },
-      'input_audio_format': 'g711_ulaw',
-      'output_audio_format': 'g711_ulaw',
+      'input_audio_format': 'pcm16',
+      'output_audio_format': 'pcm16',
       'voice': 'alloy',
       'instructions': INSTRUCTIONS,
       'modalities': %w[text audio],

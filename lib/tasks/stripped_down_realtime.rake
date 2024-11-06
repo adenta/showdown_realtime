@@ -4,13 +4,17 @@ require 'base64'
 require 'net/http'
 require 'uri'
 require 'socket'
-require_relative '../audio_mode_helper'
 
 namespace :stripped_down_realtime do
   include AudioModeHelper
 
   task vibe: :environment do
+    log_filename = Rails.root.join('log', 'demo.log')
+    @logger = ColorLogger.new(log_filename)
+    @logger.progname = 'CONSOLE'
+
     EM.run do
+      @logger.info 'Starting OpenAI WebSocket connection'
       openai_ws = Faye::WebSocket::Client.new(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', nil, {
           headers: {
@@ -20,28 +24,8 @@ namespace :stripped_down_realtime do
         }
       )
 
-      EM.defer do
-        loop do
-          input = gets.chomp
-          audio_mode_puts "Received: #{input}"
-          openai_ws.send({
-            "type": 'conversation.item.create',
-            "item": {
-              "type": 'message',
-              "role": 'user',
-              "content": [
-                {
-                  "type": 'input_text',
-                  "text": input
-                }
-              ]
-            }
-          }.to_json)
-        end
-      end
-
       openai_ws.on :open do |event|
-        audio_mode_puts 'Connected to OpenAI WebSocket'
+        @logger.info 'Con n ecting to OpenAI WebSocket'
         openai_ws.send({
           "type": 'session.update',
           "session": {
@@ -67,6 +51,8 @@ namespace :stripped_down_realtime do
       openai_ws.on :message do |event|
         response = JSON.parse(event.data)
 
+        @logger.info response
+
         if response['type'] == 'response.audio.delta' && response['delta']
           begin
             # Base64 encoced PCM packets
@@ -77,25 +63,12 @@ namespace :stripped_down_realtime do
               STDOUT.flush
             end
           rescue StandardError => e
-            audio_mode_puts "Error processing audio data: #{e}"
+            @logger.info e
           end
         end
       end
 
-      openai_ws.on :error do |event|
-        audio_mode_puts "WebSocket Error: #{event.message}"
-      end
-
-      openai_ws.on :close do |event|
-        audio_mode_puts "Connection closed: #{event.code} - #{event.reason}"
-      end
-
       EM.add_periodic_timer(5) do
-        audio_mode_puts 'creating a response'
-        # openai_ws.send({
-        #   "type": 'response.cancel'
-        # }.to_json)
-        #
         openai_ws.send({
           "type": 'conversation.item.create',
           "item": {

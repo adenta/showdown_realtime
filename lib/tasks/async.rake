@@ -10,8 +10,6 @@ namespace :async do
     @logger.progname = 'CONSOLE'
 
     Async do |task|
-      ObsWebsocketService.new.open_connection
-
       OpenaiWebsocketService.new(
         openai_message_queue,
         pokemon_showdown_message_queue
