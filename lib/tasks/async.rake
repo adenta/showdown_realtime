@@ -7,7 +7,7 @@ namespace :async do
       PokemonShowdownWebsocketService.new(
         pokemon_showdown_message_queue,
         openai_message_queue
-      ).open_connection
+      ).open_connection(fake_messages: true)
 
       CommandSendingService.new(openai_message_queue).launch
 
@@ -19,9 +19,6 @@ namespace :async do
         ).open_connection
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
-      rescue TextResponseDelta => e
-        @logger.info 'Got Text, rebooting'
-        next
       end
     end
   end
@@ -29,7 +26,7 @@ namespace :async do
   task vibe_over_rtmp: :environment do
     # command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
 
-    command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
+    command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
 
     system(command)
   end
@@ -37,22 +34,5 @@ namespace :async do
   task vibe_over_ffplay: :environment do
     command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffplay -f s16le -ar 24000 -fflags nobuffer -flags low_delay -i pipe:0'
     system(command)
-  end
-
-  task send_commands: :environment do
-    Async do |task|
-      # TODO(adenta) magic string commands.log
-      file_path = Rails.root.join('log', 'commands.log')
-      File.open(file_path, 'a') do |file|
-        loop do
-          puts "Enter a message to log (or type 'exit' to quit):"
-          input = STDIN.gets.strip
-          break if input.downcase == 'exit'
-
-          file.puts input
-          file.flush
-        end
-      end
-    end
   end
 end

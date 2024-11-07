@@ -4,12 +4,6 @@ require 'async'
 require 'async/http'
 require 'async/websocket'
 
-class TextResponseDelta < StandardError
-  def initialize(msg = 'Unexpected text response delta encountered.')
-    super
-  end
-end
-
 class OpenaiWebsocketService
   URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01'
   HEADERS = {
@@ -112,20 +106,6 @@ class OpenaiWebsocketService
             @logger.info response['type']
 
             @logger.info response if response['type'] == 'error' || response['type'] == 'rate_limits.updated'
-
-            if response['type'] == 'response.text.delta'
-              begin
-                raise TextResponseDelta
-              rescue TextResponseDelta => e
-                @logger.error "Error: #{e.message}"
-                raise TextResponseDelta
-              ensure
-                inbound_message_task.stop
-                connection.close
-                subtask.stop
-                @logger.info 'TextResponseDelta exception handled, connection closed'
-              end
-            end
 
             function_call = response['type'].include? 'response.function_call_arguments.done'
 

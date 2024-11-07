@@ -22,26 +22,84 @@ class PokemonShowdownWebsocketService
     @logger.progname = 'PKMN'
   end
 
-  def open_connection
-    Async do
-      Async::WebSocket::Client.connect(@endpoint) do |connection|
-        process_inbound_messages(connection)
+  def open_connection(fake_messages = false)
+    Async do |task|
+      task.async do |subtask|
+        Async::WebSocket::Client.connect(@endpoint) do |connection|
+          process_inbound_messages(connection)
 
-        while (message_object = connection.read)
-          message = message_object.buffer
+          while (message_object = connection.read)
+            message = message_object.buffer
 
-          send_auth_message(connection, message) if message.include?(AUTH_CHALLANGE_MESSAGE_IDENTIFIER)
-          battle_state_handler(connection, message) if message.include?(BATTLE_STATE_MESSAGE_IDENTIFIER)
+            send_auth_message(connection, message) if message.include?(AUTH_CHALLANGE_MESSAGE_IDENTIFIER)
+            battle_state_handler(connection, message) if message.include?(BATTLE_STATE_MESSAGE_IDENTIFIER)
 
-          inactive_message = message.include?(INACTIVE_MESSAGE_IDENTIFIER)
-          error_message = message.include?(ERROR_MESSAGE_IDENTIFIER)
-          invalid_choice_message = message.include?('[Invalid choice]')
-          invoke_inactive_message_handler = inactive_message || error_message || invalid_choice_message
+            inactive_message = message.include?(INACTIVE_MESSAGE_IDENTIFIER)
+            error_message = message.include?(ERROR_MESSAGE_IDENTIFIER)
+            invalid_choice_message = message.include?('[Invalid choice]')
+            invoke_inactive_message_handler = inactive_message || error_message || invalid_choice_message
 
-          inactive_message_handler(connection, message) if invoke_inactive_message_handler
+            inactive_message_handler(connection, message) if invoke_inactive_message_handler
 
-          win_or_tie_handler(connection, message) if message.include?('|win|') || message.include?('|tie|')
+            win_or_tie_handler(connection, message) if message.include?('|win|') || message.include?('|tie|')
 
+          end
+        end
+      end
+
+      return unless fake_messages
+
+      task.sleep 10
+
+      # this is happening here because we have access to the battle state
+      loop do
+        @logger.info 'Generating Fake Chats'
+
+        messages = FakeChatService.generate_messages(@battle_state)
+
+        messages['chat_messages'].each do |message|
+          task.sleep(rand(0.5..3.0))
+
+          @logger.info JSON.pretty_generate(message)
+          @outbound_message_queue.enqueue({
+            "type": 'conversation.item.create',
+            "item": {
+              "type": 'message',
+              "role": 'user',
+              "content": [
+                {
+                  "type": 'input_text',
+                  "text": "#{message['username']}: #{message['body']}"
+                }
+              ]
+            }
+          }.to_json)
+
+          next unless rand > 0.8
+
+          @outbound_message_queue.enqueue({
+            "type": 'conversation.item.create',
+            "item": {
+              "type": 'message',
+              "role": 'user',
+              "content": [
+                {
+                  "type": 'input_text',
+                  "text": 'chatte, pick a move suggested by the chat!'
+                }
+              ]
+            }
+          }.to_json)
+
+          @logger.info 'Sending a message to chatte to pick a move'
+
+          @outbound_message_queue.enqueue({
+            "type": 'response.cancel'
+          }.to_json)
+
+          @outbound_message_queue.enqueue({
+            "type": 'response.create'
+          }.to_json)
         end
       end
     end
