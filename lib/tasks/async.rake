@@ -4,17 +4,22 @@ namespace :async do
     openai_message_queue = Async::Queue.new
 
     Async do |task|
-      OpenaiWebsocketService.new(
-        openai_message_queue,
-        pokemon_showdown_message_queue
-      ).open_connection
-
       PokemonShowdownWebsocketService.new(
         pokemon_showdown_message_queue,
         openai_message_queue
       ).open_connection
 
       CommandSendingService.new(openai_message_queue).launch
+
+      # OpenAI times out at fifteen minutes, so we must periodically restart the service
+      loop do
+        OpenaiWebsocketService.new(
+          openai_message_queue,
+          pokemon_showdown_message_queue
+        ).open_connection
+
+        task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
+      end
     end
   end
 
@@ -43,18 +48,6 @@ namespace :async do
           file.flush
         end
       end
-    end
-  end
-
-  task start_and_stop_test: :environment do
-    pokemon_showdown_message_queue = Async::Queue.new
-    openai_message_queue = Async::Queue.new
-
-    Async do |task|
-      OpenaiWebsocketService.new(
-        openai_message_queue,
-        pokemon_showdown_message_queue
-      ).open_connection
     end
   end
 end

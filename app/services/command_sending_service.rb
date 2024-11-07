@@ -15,7 +15,6 @@ class CommandSendingService
       loop do
         line = @file.gets
         if line
-
           @openai_message_queue.enqueue({
             "type": 'conversation.item.create',
             "item": {

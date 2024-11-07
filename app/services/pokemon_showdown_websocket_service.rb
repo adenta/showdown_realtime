@@ -68,6 +68,7 @@ class PokemonShowdownWebsocketService
             command = "#{@battle_state[:battle_id]}|/move #{i + 1}"
             choose_move_message = Protocol::WebSocket::TextMessage.new(command)
             choose_move_message.send(connection)
+            @logger.info command
             connection.flush
           end
         when 'switch_pokemon'
@@ -80,8 +81,10 @@ class PokemonShowdownWebsocketService
           pokemans.each_with_index do |pokemon, i|
             next unless pokemon[:ident].include?(message[:switch_name])
 
-            switch_pokemon_message = Protocol::WebSocket::TextMessage.new("#{@battle_state[:battle_id]}|/switch #{i + 1}")
+            command = "#{@battle_state[:battle_id]}|/switch #{i + 1}"
+            switch_pokemon_message = Protocol::WebSocket::TextMessage.new(command)
             switch_pokemon_message.send(connection)
+            @logger.info command
             connection.flush
           end
 

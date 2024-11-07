@@ -82,9 +82,11 @@ class OpenaiWebsocketService
         session_update_message.send(connection)
         connection.flush
 
-        process_inbound_messages(connection)
+        inbound_message_task = process_inbound_messages(connection)
 
-        task.async do
+        message_reader_task = task.async do
+          @logger.info 'Reading Messages from OpenAI'
+
           while (message = connection.read)
             response = JSON.parse(message)
 
@@ -112,16 +114,20 @@ class OpenaiWebsocketService
           end
         end
 
-        task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
+        # Make sure the connection is closed at least two seconds before the next session begins
+        task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes - 10.seconds)
 
         @logger.info 'Connection closed with OpenAI'
 
+        inbound_message_task.stop
+        message_reader_task.stop
         connection.close
       end
     end
   end
 
   def process_inbound_messages(connection)
+    @logger.info 'Processing inbound messages'
     Async do
       loop do
         message = @inbound_message_queue.dequeue
