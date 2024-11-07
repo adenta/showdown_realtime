@@ -75,39 +75,48 @@ class OpenaiWebsocketService
   end
 
   def open_connection
-    Async do
+    Async do |task|
       Async::WebSocket::Client.connect(@endpoint, headers: HEADERS) do |connection|
+        @logger.info 'Connection established to OpenAI'
         session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
         session_update_message.send(connection)
         connection.flush
 
         process_inbound_messages(connection)
 
-        while (message = connection.read)
-          response = JSON.parse(message)
+        task.async do
+          while (message = connection.read)
+            response = JSON.parse(message)
 
-          @logger.info response['type']
+            @logger.info response['type']
 
-          function_call = response['type'].include? 'response.function_call_arguments.done'
+            function_call = response['type'].include? 'response.function_call_arguments.done'
 
-          if function_call && response['name'] == 'choose_move'
-            choose_move(connection, response)
-          elsif function_call && response['name'] == 'switch_pokemon'
-            switch_pokemon(connection, response)
-          elsif response['type'] == 'response.audio.delta' && response['delta']
-            begin
-              # Base64 encoced PCM packets
-              audio_payload = response['delta']
+            if function_call && response['name'] == 'choose_move'
+              choose_move(connection, response)
+            elsif function_call && response['name'] == 'switch_pokemon'
+              switch_pokemon(connection, response)
+            elsif response['type'] == 'response.audio.delta' && response['delta']
+              begin
+                # Base64 encoced PCM packets
+                audio_payload = response['delta']
 
-              if ENV['SEND_AUDIO_TO_STDOUT'] == 'true'
-                STDOUT.write(Base64.decode64(audio_payload))
-                STDOUT.flush
+                if ENV['SEND_AUDIO_TO_STDOUT'] == 'true'
+                  STDOUT.write(Base64.decode64(audio_payload))
+                  STDOUT.flush
+                end
+              rescue StandardError => e
+                @logger.info "Error processing audio data: #{e}"
               end
-            rescue StandardError => e
-              @logger.info "Error processing audio data: #{e}"
             end
           end
         end
+
+        task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
+
+        @logger.info 'Connection closed with OpenAI'
+
+        connection.close
       end
     end
   end

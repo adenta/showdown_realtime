@@ -45,4 +45,16 @@ namespace :async do
       end
     end
   end
+
+  task start_and_stop_test: :environment do
+    pokemon_showdown_message_queue = Async::Queue.new
+    openai_message_queue = Async::Queue.new
+
+    Async do |task|
+      OpenaiWebsocketService.new(
+        openai_message_queue,
+        pokemon_showdown_message_queue
+      ).open_connection
+    end
+  end
 end
