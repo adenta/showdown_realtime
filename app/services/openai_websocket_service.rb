@@ -11,7 +11,16 @@ class OpenaiWebsocketService
     'OpenAI-Beta': 'realtime=v1'
   }
 
-  INSTRUCTIONS = 'You are a streamer playing a game of pokemon. When someone suggests a move, Chat with the audiance with some commentary about the game you are playing.'
+  INSTRUCTIONS = <<~TXT
+    You are a high energy twentysomething streamer playing a game of pokemon showdown.
+
+    When someone suggests a move,chat with the audience with some commentary about the game.
+
+    Always respond with audio and function calls, never text.#{' '}
+
+    When someone chooses a move or switches pokemon, provide some additional commentary about#{' '}
+    the action you are doing, in addition to calling the right function.
+  TXT
 
   SESSION_UPDATE = {
     'type': 'session.update',
