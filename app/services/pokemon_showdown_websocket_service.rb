@@ -62,8 +62,12 @@ class PokemonShowdownWebsocketService
 
           next unless first_active_pokemon.present?
 
+          found_move = false
+
           first_active_pokemon[:moves].each_with_index do |move, i|
             next unless move[:move] == message[:move_name]
+
+            found_move = true
 
             command = "#{@battle_state[:battle_id]}|/move #{i + 1}"
             choose_move_message = Protocol::WebSocket::TextMessage.new(command)
@@ -71,6 +75,9 @@ class PokemonShowdownWebsocketService
             @logger.info command
             connection.flush
           end
+
+          @logger.info "Could not find a pokemon with the name #{message[:move_name]}" unless found_move
+
         when 'switch_pokemon'
           next if @battle_state.empty?
 
@@ -78,8 +85,12 @@ class PokemonShowdownWebsocketService
           pokemans = @battle_state.dig(:state, :side, :pokemon)
           next unless pokemans.present?
 
+          found_pokemon = false
+
           pokemans.each_with_index do |pokemon, i|
             next unless pokemon[:ident].include?(message[:switch_name])
+
+            found_pokemon = true
 
             command = "#{@battle_state[:battle_id]}|/switch #{i + 1}"
             switch_pokemon_message = Protocol::WebSocket::TextMessage.new(command)
@@ -87,6 +98,8 @@ class PokemonShowdownWebsocketService
             @logger.info command
             connection.flush
           end
+
+          @logger.info "Could not find a pokemon with the name #{message[:switch_name]}" unless found_pokemon
 
         when 'default'
 

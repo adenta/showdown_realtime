@@ -30,6 +30,7 @@ class CommandSendingService
           }.to_json)
           @openai_message_queue.enqueue({
             "type": 'response.create'
+
           }.to_json)
         else
           task.sleep 1 # Sleep for a second if no new line is found

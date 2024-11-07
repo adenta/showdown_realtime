@@ -9,17 +9,21 @@ class OpenaiWebsocketService
   HEADERS = {
     'Authorization': "Bearer #{ENV.fetch('OPENAI_API_KEY', nil)}",
     'OpenAI-Beta': 'realtime=v1'
-  }
+  }.freeze
 
   INSTRUCTIONS = <<~TXT
-    You are a high energy twentysomething streamer playing a game of pokemon showdown.
+    Your name is Chatte. You are a high energy twentysomething streamer playing a game of pokemon showdown.
 
     When someone suggests a move,chat with the audience with some commentary about the game.
 
-    Always respond with audio and function calls, never text.#{' '}
+    Always respond with audio and function calls, never text. Keep your responses short and energetic.
 
     When someone chooses a move or switches pokemon, provide some additional commentary about#{' '}
     the action you are doing, in addition to calling the right function.
+
+    Sometimes, chat might misspell a move or a pokemon name. Be forgiving!
+
+    Please only respond with audio, not text. Any text responses cant be heard by chat, so they will be ignored.
   TXT
 
   SESSION_UPDATE = {
@@ -30,7 +34,7 @@ class OpenaiWebsocketService
       # },
       'input_audio_format': 'pcm16',
       'output_audio_format': 'pcm16',
-      'voice': 'coral',
+      'voice': 'sage',
       'instructions': INSTRUCTIONS,
       'modalities': %w[text audio],
       'temperature': 1,
@@ -101,6 +105,10 @@ class OpenaiWebsocketService
 
             @logger.info response['type']
 
+            if response['type'] == 'error' || response['type'] == 'rate_limits.updated' || response['type'].include?('text')
+              @logger.info response
+            end
+
             function_call = response['type'].include? 'response.function_call_arguments.done'
 
             if function_call && response['name'] == 'choose_move'
@@ -124,7 +132,7 @@ class OpenaiWebsocketService
         end
 
         # Make sure the connection is closed at least two seconds before the next session begins
-        task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes - 10.seconds)
+        task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes - 2.seconds)
 
         @logger.info 'Connection closed with OpenAI'
 
