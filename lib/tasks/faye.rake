@@ -5,7 +5,7 @@ namespace :faye do
     file_path = Rails.root.join('log', 'commands.log')
     file = File.open(file_path, 'r')
     file.seek(0, IO::SEEK_END) # Move to the end of the file
-    log_filename = Rails.root.join('log', 'demo.log')
+    log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'CONSOLE'
 

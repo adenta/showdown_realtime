@@ -65,7 +65,7 @@ SESSION_UPDATE = {
 namespace :demo do
   task vibe: :environment do
     battle_state = {}
-    log_filename = Rails.root.join('log', 'demo.log')
+    log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'DEMO'
     file_path = Rails.root.join('log', 'commands.log')

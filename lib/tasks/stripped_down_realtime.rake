@@ -9,7 +9,7 @@ namespace :stripped_down_realtime do
   include AudioModeHelper
 
   task vibe: :environment do
-    log_filename = Rails.root.join('log', 'demo.log')
+    log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'CONSOLE'
 

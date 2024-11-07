@@ -13,7 +13,7 @@ class InochiOscService
   def initialize
     @osc_client = OSC::Client.new('localhost', 39_540)
 
-    log_filename = Rails.root.join('log', 'demo.log')
+    log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'INOC'
   end

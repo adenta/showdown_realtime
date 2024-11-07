@@ -2,12 +2,6 @@ namespace :async do
   task vibe: :environment do
     pokemon_showdown_message_queue = Async::Queue.new
     openai_message_queue = Async::Queue.new
-    file_path = Rails.root.join('log', 'commands.log')
-    file = File.open(file_path, 'r')
-    file.seek(0, IO::SEEK_END) # Move to the end of the file
-    log_filename = Rails.root.join('log', 'demo.log')
-    @logger = ColorLogger.new(log_filename)
-    @logger.progname = 'CONSOLE'
 
     Async do |task|
       OpenaiWebsocketService.new(
@@ -20,32 +14,7 @@ namespace :async do
         openai_message_queue
       ).open_connection
 
-      task.async do
-        loop do
-          line = file.gets
-          if line
-
-            openai_message_queue.enqueue({
-              "type": 'conversation.item.create',
-              "item": {
-                "type": 'message',
-                "role": 'user',
-                "content": [
-                  {
-                    "type": 'input_text',
-                    "text": "chairlaw: #{line.strip}"
-                  }
-                ]
-              }
-            }.to_json)
-            openai_message_queue.enqueue({
-              "type": 'response.create'
-            }.to_json)
-          else
-            task.sleep 1 # Sleep for a second if no new line is found
-          end
-        end
-      end
+      CommandSendingService.new(openai_message_queue).launch
     end
   end
 
@@ -62,6 +31,7 @@ namespace :async do
 
   task send_commands: :environment do
     Async do |task|
+      # TODO(adenta) magic string commands.log
       file_path = Rails.root.join('log', 'commands.log')
       File.open(file_path, 'a') do |file|
         loop do
