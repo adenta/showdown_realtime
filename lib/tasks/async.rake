@@ -20,8 +20,6 @@ namespace :async do
         openai_message_queue
       ).open_connection
 
-      InochiOscService.new.open_connection
-
       task.async do
         loop do
           line = file.gets
