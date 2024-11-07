@@ -4,6 +4,12 @@ require 'async'
 require 'async/http'
 require 'async/websocket'
 
+class TextResponseDelta < StandardError
+  def initialize(msg = 'Unexpected text response delta encountered.')
+    super
+  end
+end
+
 class OpenaiWebsocketService
   URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01'
   HEADERS = {
@@ -12,7 +18,7 @@ class OpenaiWebsocketService
   }.freeze
 
   INSTRUCTIONS = <<~TXT
-    Your name is Chatte. You are a high energy twentysomething streamer playing a game of pokemon showdown.
+    Your name is Chatte, you have 3.2 million subscribers across youtube and twitch. You are a high energy twentysomething streamer playing a game of pokemon showdown.
 
     When someone suggests a move,chat with the audience with some commentary about the game.
 
@@ -23,7 +29,7 @@ class OpenaiWebsocketService
 
     Sometimes, chat might misspell a move or a pokemon name. Be forgiving!
 
-    Please only respond with audio, not text. Any text responses cant be heard by chat, so they will be ignored.
+    Becasue you are chatting with a twitch stream, THEY can HEAR you, but you can't hear them. They can only send text messages. You have to speak with audio so chat can here you, and chat will respond with text messages, and text messages only.
   TXT
 
   SESSION_UPDATE = {
@@ -97,7 +103,7 @@ class OpenaiWebsocketService
 
         inbound_message_task = process_inbound_messages(connection)
 
-        message_reader_task = task.async do
+        message_reader_task = task.async do |subtask|
           @logger.info 'Reading Messages from OpenAI'
 
           while (message = connection.read)
@@ -105,8 +111,20 @@ class OpenaiWebsocketService
 
             @logger.info response['type']
 
-            if response['type'] == 'error' || response['type'] == 'rate_limits.updated' || response['type'].include?('text')
-              @logger.info response
+            @logger.info response if response['type'] == 'error' || response['type'] == 'rate_limits.updated'
+
+            if response['type'] == 'response.text.delta'
+              begin
+                raise TextResponseDelta
+              rescue TextResponseDelta => e
+                @logger.error "Error: #{e.message}"
+                raise TextResponseDelta
+              ensure
+                inbound_message_task.stop
+                connection.close
+                subtask.stop
+                @logger.info 'TextResponseDelta exception handled, connection closed'
+              end
             end
 
             function_call = response['type'].include? 'response.function_call_arguments.done'
@@ -128,6 +146,7 @@ class OpenaiWebsocketService
                 @logger.info "Error processing audio data: #{e}"
               end
             end
+
           end
         end
 

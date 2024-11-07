@@ -19,6 +19,9 @@ namespace :async do
         ).open_connection
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
+      rescue TextResponseDelta => e
+        @logger.info 'Got Text, rebooting'
+        next
       end
     end
   end
