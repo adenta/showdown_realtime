@@ -20,6 +20,8 @@ namespace :async do
         openai_message_queue
       ).open_connection
 
+      InochiOscService.new.open_connection
+
       task.async do
         loop do
           line = file.gets
@@ -49,9 +51,14 @@ namespace :async do
     end
   end
 
-  task vibe_over_stdout: :environment do
+  task vibe_over_rtmp: :environment do
     command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
 
+    system(command)
+  end
+
+  task vibe_over_ffplay: :environment do
+    command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffplay -f s16le -ar 24000 -fflags nobuffer -flags low_delay -i pipe:0'
     system(command)
   end
 

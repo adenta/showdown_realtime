@@ -18,7 +18,7 @@ SESSION_UPDATE = {
     # },
     'input_audio_format': 'g711_ulaw',
     'output_audio_format': 'g711_ulaw',
-    'voice': 'alloy',
+    'voice': 'coral',
     'instructions': INSTRUCTIONS,
     'modalities': %w[text audio],
     'temperature': 1,

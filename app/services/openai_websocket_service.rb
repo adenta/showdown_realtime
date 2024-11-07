@@ -21,7 +21,7 @@ class OpenaiWebsocketService
       # },
       'input_audio_format': 'pcm16',
       'output_audio_format': 'pcm16',
-      'voice': 'alloy',
+      'voice': 'coral',
       'instructions': INSTRUCTIONS,
       'modalities': %w[text audio],
       'temperature': 1,

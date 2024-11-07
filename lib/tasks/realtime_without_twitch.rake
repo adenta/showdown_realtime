@@ -59,7 +59,7 @@ namespace :realtime_without_twitch do
               audio
             ],
             "instructions": "System settings:\nTool use: enabled.\n\nYou are an online streamer playing pokemon on twitch. \nProvide some commentary of the match as it happens. \n Answer chats questions as they are asked. \n When people join chat, greet them. Pick moves suggested by chat. You are a young women who talks kinda fast and is easily excitable. When you take a members suggestion, call them out and thank them for their suggestion.",
-            "voice": 'alloy',
+            "voice": 'coral',
             "input_audio_format": 'pcm16',
             "output_audio_format": 'pcm16',
             "input_audio_transcription": {
