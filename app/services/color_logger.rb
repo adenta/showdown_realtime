@@ -6,6 +6,7 @@ class ColorLogger < Logger
                           when 'OBS' then msg.to_s.green
                           when 'PKMN' then msg.to_s.red
                           when 'OPENAI' then msg.to_s.blue
+                          when 'COMM' then msg.to_s.yellow
                           else msg.to_s
                           end
       "#{colorized_message}\n"

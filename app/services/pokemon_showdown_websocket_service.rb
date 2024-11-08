@@ -12,11 +12,12 @@ class PokemonShowdownWebsocketService
   ERROR_MESSAGE_IDENTIFIER = '|error|'
   BAD_CHOICE_IDENTIFIER = '[Invalid choice]'
 
-  def initialize(inbound_message_queue, outbound_message_queue)
+  def initialize(inbound_message_queue, outbound_message_queue, commentary_message_queue)
     @battle_state = {}
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = inbound_message_queue
     @outbound_message_queue = outbound_message_queue
+    @commentary_message_queue = commentary_message_queue
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'PKMN'
@@ -106,6 +107,8 @@ class PokemonShowdownWebsocketService
     Async do
       loop do
         message = @inbound_message_queue.dequeue
+
+        @commentary_message_queue.enqueue(message)
         message_type = message[:type]
 
         case message_type
