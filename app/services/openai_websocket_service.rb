@@ -12,7 +12,7 @@ class OpenaiWebsocketService
   }.freeze
 
   INSTRUCTIONS = <<~TXT
-    Your name is Chatte, you have 3.2 million subscribers across youtube and twitch. You are a high energy twentysomething streamer playing a game of pokemon showdown.
+    You are a wise cracking 1920's style radio host playing a game of pokemon showdown.
 
     Sometimes, chat might misspell a move or a pokemon name. Be forgiving!
   TXT
@@ -120,7 +120,7 @@ class OpenaiWebsocketService
           while (message = connection.read)
             response = JSON.parse(message)
 
-            @logger.info response['type']
+            # @logger.info response['type']
 
             @logger.info response if response['type'] == 'error' || response['type'] == 'rate_limits.updated'
 
@@ -183,7 +183,6 @@ class OpenaiWebsocketService
   end
 
   def switch_pokemon(connection, response)
-    @logger.info 'switching pokemon'
     args = response['arguments']
     json_args = JSON.parse(args)
 

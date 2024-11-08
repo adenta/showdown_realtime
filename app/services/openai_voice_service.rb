@@ -15,6 +15,13 @@ class OpenaiVoiceService
         audio: { voice: 'ash', format: 'wav' },
         messages: [
           {
+            role: 'system',
+            content:
+          <<~SYSTEM
+            You are a wise cracking, 1920s radio announcer who has been hired to give commentary for a Pokemon battle.
+          SYSTEM
+          },
+          {
             role: 'user',
             content: text
           }

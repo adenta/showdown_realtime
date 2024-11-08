@@ -42,4 +42,33 @@ namespace :async do
     command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffplay -f s16le -ar 24000 -fflags nobuffer -flags low_delay -i pipe:0'
     system(command)
   end
+
+  task audio_test: :environment do
+    response = OpenaiVoiceService.new.generate_voice(<<~TXT)
+      Turn 6
+
+      Magneton used Thunder Wave!
+      The opposing Parasect is paralyzed! It may be unable to move!
+
+      The opposing Parasect is paralyzed! It can't move!
+
+      Turn 7
+
+      Magneton used Thunder!
+      It's not very effective...
+      (The opposing Parasect lost 30% of its health!)
+
+      The opposing Parasect used Hyper Beam!
+      (Magneton lost 17.2% of its health!)
+
+      Magneton fainted!
+
+      Go! Tentacruel!
+    TXT
+    audio_response = Base64.decode64(response)
+    filename = Rails.root.join('tmp', "#{Time.now.strftime('%Y%m%d%H%M%S')}.wav")
+    File.open(filename, 'wb') do |file|
+      file.write(audio_response)
+    end
+  end
 end

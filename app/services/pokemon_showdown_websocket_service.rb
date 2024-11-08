@@ -54,14 +54,11 @@ class PokemonShowdownWebsocketService
 
       # this is happening here because we have access to the battle state
       loop do
-        @logger.info 'Generating Fake Chats'
-
         messages = FakeChatService.generate_messages(@battle_state)
 
         messages['chat_messages'].each do |message|
           task.sleep(rand(0.2..0.8))
 
-          @logger.info JSON.pretty_generate(message)
           @outbound_message_queue.enqueue({
             "type": 'conversation.item.create',
             "item": {
@@ -85,13 +82,11 @@ class PokemonShowdownWebsocketService
             "content": [
               {
                 "type": 'input_text',
-                "text": 'chatte, based on the messages from chat, what should we do?'
+                "text": 'Based on the messages from chat, what should we do?'
               }
             ]
           }
         }.to_json)
-
-        @logger.info 'Sending a message to chatte to pick a move'
 
         @outbound_message_queue.enqueue({
           "type": 'response.create',
@@ -130,11 +125,10 @@ class PokemonShowdownWebsocketService
             command = "#{@battle_state[:battle_id]}|/move #{i + 1}"
             choose_move_message = Protocol::WebSocket::TextMessage.new(command)
             choose_move_message.send(connection)
-            @logger.info command
             connection.flush
           end
 
-          @logger.info "Could not find a pokemon with the name #{message[:move_name]}" unless found_move
+          @logger.info "Could not find a move with the name #{message[:move_name]}" unless found_move
 
         when 'switch_pokemon'
           next if @battle_state.empty?
@@ -153,7 +147,6 @@ class PokemonShowdownWebsocketService
             command = "#{@battle_state[:battle_id]}|/switch #{i + 1}"
             switch_pokemon_message = Protocol::WebSocket::TextMessage.new(command)
             switch_pokemon_message.send(connection)
-            @logger.info command
             connection.flush
           end
 
