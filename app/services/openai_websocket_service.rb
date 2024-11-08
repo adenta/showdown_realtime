@@ -5,7 +5,7 @@ require 'async/http'
 require 'async/websocket'
 
 class OpenaiWebsocketService
-  URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01'
+  URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview'
   HEADERS = {
     'Authorization': "Bearer #{ENV.fetch('OPENAI_API_KEY', nil)}",
     'OpenAI-Beta': 'realtime=v1'
@@ -94,6 +94,31 @@ class OpenaiWebsocketService
         session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
         session_update_message.send(connection)
         connection.flush
+
+        session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
+        session_update_message.send(connection)
+        connection.flush
+
+        @inbound_message_queue.enqueue({
+          "type": 'conversation.item.create',
+          "item": {
+            "type": 'message',
+            "role": 'user',
+            "content": [
+              {
+                "type": 'input_text',
+                "text": 'How are you?'
+              }
+            ]
+          }
+        }.to_json)
+
+        @inbound_message_queue.enqueue({
+          "type": 'response.create',
+          "response": {
+            'modalities': %w[text audio]
+          }
+        }.to_json)
 
         inbound_message_task = process_inbound_messages(connection)
 

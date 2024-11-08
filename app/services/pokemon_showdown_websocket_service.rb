@@ -58,7 +58,7 @@ class PokemonShowdownWebsocketService
         messages = FakeChatService.generate_messages(@battle_state)
 
         messages['chat_messages'].each do |message|
-          task.sleep(rand(0.5..3.0))
+          task.sleep(rand(0.2..0.8))
 
           @logger.info JSON.pretty_generate(message)
           @outbound_message_queue.enqueue({
@@ -74,36 +74,30 @@ class PokemonShowdownWebsocketService
               ]
             }
           }.to_json)
-
-          next unless rand > 0.8
-
-          @outbound_message_queue.enqueue({
-            "type": 'conversation.item.create',
-            "item": {
-              "type": 'message',
-              "role": 'user',
-              "content": [
-                {
-                  "type": 'input_text',
-                  "text": 'chatte, pick a move suggested by the chat!'
-                }
-              ]
-            }
-          }.to_json)
-
-          @logger.info 'Sending a message to chatte to pick a move'
-
-          @outbound_message_queue.enqueue({
-            "type": 'response.cancel'
-          }.to_json)
-
-          @outbound_message_queue.enqueue({
-            "type": 'response.create',
-            "response": {
-              'modalities': %w[text audio]
-            }
-          }.to_json)
         end
+
+        @outbound_message_queue.enqueue({
+          "type": 'conversation.item.create',
+          "item": {
+            "type": 'message',
+            "role": 'user',
+            "content": [
+              {
+                "type": 'input_text',
+                "text": 'chatte, based on the messages from chat, what should we do?'
+              }
+            ]
+          }
+        }.to_json)
+
+        @logger.info 'Sending a message to chatte to pick a move'
+
+        @outbound_message_queue.enqueue({
+          "type": 'response.create',
+          "response": {
+            'modalities': %w[text audio]
+          }
+        }.to_json)
       end
     end
   end
