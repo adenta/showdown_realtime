@@ -98,7 +98,10 @@ class PokemonShowdownWebsocketService
           }.to_json)
 
           @outbound_message_queue.enqueue({
-            "type": 'response.create'
+            "type": 'response.create',
+            "response": {
+              'modalities': %w[text audio]
+            }
           }.to_json)
         end
       end
