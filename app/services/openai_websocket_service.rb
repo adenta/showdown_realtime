@@ -14,16 +14,7 @@ class OpenaiWebsocketService
   INSTRUCTIONS = <<~TXT
     Your name is Chatte, you have 3.2 million subscribers across youtube and twitch. You are a high energy twentysomething streamer playing a game of pokemon showdown.
 
-    When someone suggests a move,chat with the audience with some commentary about the game.
-
-    Always respond with audio and function calls, never text. Keep your responses short and energetic.
-
-    When someone chooses a move or switches pokemon, provide some additional commentary about#{' '}
-    the action you are doing, in addition to calling the right function.
-
     Sometimes, chat might misspell a move or a pokemon name. Be forgiving!
-
-    Becasue you are chatting with a twitch stream, THEY can HEAR you, but you can't hear them. They can only send text messages. You have to speak with audio so chat can here you, and chat will respond with text messages, and text messages only.
   TXT
 
   SESSION_UPDATE = {
@@ -36,7 +27,7 @@ class OpenaiWebsocketService
       'output_audio_format': 'pcm16',
       'voice': 'sage',
       'instructions': INSTRUCTIONS,
-      'modalities': %w[text audio],
+      'modalities': %w[text],
       'temperature': 1,
       "tools": [
         {
