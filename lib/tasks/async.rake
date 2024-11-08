@@ -13,8 +13,10 @@ namespace :async do
 
       CommandSendingService.new(openai_message_queue).launch
 
-      CommentaryService.new(commentary_message_queue).open_connection
-
+      task.async do |subtask|
+        subtask.sleep 10
+        CommentaryService.new(commentary_message_queue).open_connection
+      end
       # OpenAI times out at fifteen minutes, so we must periodically restart the service
       loop do
         OpenaiWebsocketService.new(

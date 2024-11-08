@@ -11,6 +11,7 @@ class CommentaryService
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'COMM'
+    @messages = []
   end
 
   def open_connection
@@ -22,10 +23,26 @@ class CommentaryService
   def process_inbound_messages
     Async do
       loop do
-        @logger.info 'Processing Commentary Track'
         message = @inbound_message_queue.dequeue
-
         @logger.info message
+        @messages << message.to_s
+      end
+    end
+
+    Async do
+      loop do
+        @logger.info 'Generating Commentary'
+        message_buffer_string = <<~TXT
+          You are providing commentary for a game of pokemon.#{' '}
+
+          This is what everyone is suggesting, and the moves that have been used: #{@messages.join(' ')}
+        TXT
+
+        base64_response = OpenaiVoiceService.new.generate_voice(message_buffer_string)
+        audio_response = Base64.decode64(base64_response)
+        STDOUT.write(audio_response)
+        STDOUT.flush
+        @logger.info 'Finished Generating Commentary'
       end
     end
   end
