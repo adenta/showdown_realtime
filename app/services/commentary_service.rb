@@ -18,6 +18,23 @@ class CommentaryService
     Async do |task|
       process_inbound_messages
     end
+
+    # Async do
+    #   loop do
+    #     @logger.info 'Generating Commentary'
+    #     message_buffer_string = <<~TXT
+    #       You are providing commentary for a game of pokemon.#{' '}
+
+    #       This is what everyone is suggesting, and the moves that have been used: #{@messages.join(' ')}
+    #     TXT
+
+    #     base64_response = OpenaiVoiceService.new.generate_voice(message_buffer_string)
+    #     audio_response = Base64.decode64(base64_response)
+    #     STDOUT.write(audio_response)
+    #     STDOUT.flush
+    #     @logger.info 'Finished Generating Commentary'
+    #   end
+    # end
   end
 
   def process_inbound_messages
@@ -25,24 +42,6 @@ class CommentaryService
       loop do
         message = @inbound_message_queue.dequeue
         @logger.info message
-        @messages << message.to_s
-      end
-    end
-
-    Async do
-      loop do
-        @logger.info 'Generating Commentary'
-        message_buffer_string = <<~TXT
-          You are providing commentary for a game of pokemon.#{' '}
-
-          This is what everyone is suggesting, and the moves that have been used: #{@messages.join(' ')}
-        TXT
-
-        base64_response = OpenaiVoiceService.new.generate_voice(message_buffer_string)
-        audio_response = Base64.decode64(base64_response)
-        STDOUT.write(audio_response)
-        STDOUT.flush
-        @logger.info 'Finished Generating Commentary'
       end
     end
   end

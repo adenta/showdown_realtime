@@ -103,7 +103,6 @@ class PokemonShowdownWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
-        @commentary_message_queue.enqueue(message)
         message_type = message[:type]
 
         case message_type

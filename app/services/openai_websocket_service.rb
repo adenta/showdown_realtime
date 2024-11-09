@@ -165,8 +165,6 @@ class OpenaiWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
-        @commentary_message_queue.enqueue(message)
-
         openai_message = Protocol::WebSocket::TextMessage.generate(JSON.parse(message))
         openai_message.send(connection)
         connection.flush
