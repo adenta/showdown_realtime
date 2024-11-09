@@ -19,29 +19,39 @@ class CommentaryService
       process_inbound_messages
     end
 
-    # Async do
-    #   loop do
-    #     @logger.info 'Generating Commentary'
-    #     message_buffer_string = <<~TXT
-    #       You are providing commentary for a game of pokemon.#{' '}
+    Async do |task|
+      Async do
+        loop do
+          @logger.info 'Generating Commentary'
 
-    #       This is what everyone is suggesting, and the moves that have been used: #{@messages.join(' ')}
-    #     TXT
+          filtered_messages_for_prompt = @messages.map { |message| message[:data] }.reverse.join(' ')
 
-    #     base64_response = OpenaiVoiceService.new.generate_voice(message_buffer_string)
-    #     audio_response = Base64.decode64(base64_response)
-    #     STDOUT.write(audio_response)
-    #     STDOUT.flush
-    #     @logger.info 'Finished Generating Commentary'
-    #   end
-    # end
+          message_buffer_string = <<~TXT
+            You are providing commentary for a game of pokemon.#{' '}
+
+            Here are the logs of everything that is happening right now: #{filtered_messages_for_prompt}
+          TXT
+
+          @logger.info message_buffer_string
+
+          @messages = []
+
+          base64_response = OpenaiVoiceService.new.generate_voice(message_buffer_string)
+          audio_response = Base64.decode64(base64_response)
+          STDOUT.write(audio_response)
+          STDOUT.flush
+          @logger.info 'Finished Generating Commentary'
+        end
+      end
+    end
   end
 
   def process_inbound_messages
     Async do
       loop do
         message = @inbound_message_queue.dequeue
-        @logger.info message[:data]
+        @logger.info "Received message of type: #{message[:type]} at #{message[:created_at]}"
+        @messages << message
       end
     end
   end

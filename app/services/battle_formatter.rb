@@ -4,7 +4,7 @@ class BattleFormatter
     @logger.progname = 'BAFO'
 
     battle_state = battle_state.deep_symbolize_keys!
-    formatted_battle_state = "Battle State (Turn #{battle_state[:rqid]}):\n\n"
+    formatted_battle_state = "Battle State (Turn #{battle_state[:rqid].to_i / 2.to_f}):\n\n"
 
     battle_state[:active].each do |active_pokemon|
       formatted_battle_state += "Active Pokemon:\n"
