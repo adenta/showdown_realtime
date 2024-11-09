@@ -72,7 +72,15 @@ class PokemonShowdownWebsocketService
               ]
             }
           }.to_json)
+
+          @commentary_message_queue.enqueue(
+            { type: 'fake_chat',
+              data: "#{message['username']}: #{message['body']}",
+              created_at: Time.zone.now }
+          )
         end
+
+        @logger.info 'Requesting a response from OpenAI'
 
         @outbound_message_queue.enqueue({
           "type": 'conversation.item.create',
@@ -91,7 +99,7 @@ class PokemonShowdownWebsocketService
         @outbound_message_queue.enqueue({
           "type": 'response.create',
           "response": {
-            'modalities': %w[text audio]
+            'modalities': %w[text]
           }
         }.to_json)
       end
@@ -121,6 +129,12 @@ class PokemonShowdownWebsocketService
 
             found_move = true
 
+            @commentary_message_queue.enqueue(
+              { type: 'choose_move',
+                data: "Choosing move #{message[:move_name]}",
+                created_at: Time.zone.now }
+            )
+
             command = "#{@battle_state[:battle_id]}|/move #{i + 1}"
             choose_move_message = Protocol::WebSocket::TextMessage.new(command)
             choose_move_message.send(connection)
@@ -142,6 +156,12 @@ class PokemonShowdownWebsocketService
             next unless pokemon[:ident].include?(message[:switch_name])
 
             found_pokemon = true
+
+            @commentary_message_queue.enqueue(
+              { type: 'switch_pokemon',
+                data: "Switching to pokemon #{message[:switch_name]}",
+                created_at: Time.zone.now }
+            )
 
             command = "#{@battle_state[:battle_id]}|/switch #{i + 1}"
             switch_pokemon_message = Protocol::WebSocket::TextMessage.new(command)
@@ -240,6 +260,10 @@ class PokemonShowdownWebsocketService
       }
     }.to_json)
 
+    @commentary_message_queue.enqueue({ type: 'inactive_timer',
+                                        data: message,
+                                        created_at: Time.zone.now })
+
     match = message.match(/\d+ sec/)
     return if match.blank? || @battle_state.empty?
 
@@ -255,9 +279,13 @@ class PokemonShowdownWebsocketService
     connection.flush
   end
 
-  def win_or_tie_handler(connection, _message)
+  def win_or_tie_handler(connection, message)
     inactive_message = Protocol::WebSocket::TextMessage.new('|/search gen9randombattle')
     inactive_message.send(connection)
     connection.flush
+
+    @commentary_message_queue.enqueue({ type: 'win_or_tie',
+                                        data: message,
+                                        created_at: Time.zone.now })
   end
 end

@@ -130,6 +130,8 @@ class OpenaiWebsocketService
               choose_move(connection, response)
             elsif function_call && response['name'] == 'switch_pokemon'
               switch_pokemon(connection, response)
+            elsif response['type'] == 'response.text'
+              @logger.info response
             elsif response['type'] == 'response.audio.delta' && response['delta']
               begin
                 # Base64 encoced PCM packets
