@@ -41,9 +41,8 @@ class CommentaryService
     Async do
       loop do
         message = @inbound_message_queue.dequeue
-        @logger.info message.class
-        @logger.info message
-        @logger.info message.to_s
+        @logger.info "Received message of type: #{message[:type]}"
+        @logger.info "Message data: #{message[:data]}"
       end
     end
   end
