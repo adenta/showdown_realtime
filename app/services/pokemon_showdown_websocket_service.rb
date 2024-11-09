@@ -206,7 +206,8 @@ class PokemonShowdownWebsocketService
     @battle_state[:battle_id] = battle_id
 
     @commentary_message_queue.enqueue({ type: 'battle_state',
-                                        data: BattleFormatter.format_battle(@battle_state[:state]) })
+                                        data: BattleFormatter.format_battle(@battle_state[:state]),
+                                        created_at: Time.zone.now })
     @outbound_message_queue.enqueue({
       "type": 'conversation.item.create',
       "item": {

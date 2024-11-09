@@ -42,7 +42,9 @@ class CommentaryService
       loop do
         message = @inbound_message_queue.dequeue
         @logger.info "Received message of type: #{message[:type]}"
-        @logger.info "Message data: #{message[:data]}"
+        @logger.info "Message Was created at: #{message[:created_at]}"
+
+        @logger.info "Message data: #{message[:data].first(20)}..."
       end
     end
   end
