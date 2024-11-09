@@ -130,6 +130,7 @@ class OpenaiWebsocketService
               choose_move(connection, response)
             elsif function_call && response['name'] == 'switch_pokemon'
               switch_pokemon(connection, response)
+            # TODO(adenta) consier removing the following condition, as it is not currently in use
             elsif response['type'] == 'response.audio.delta' && response['delta']
               begin
                 # Base64 encoced PCM packets
@@ -165,7 +166,7 @@ class OpenaiWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
-        @commentary_message_queue.enqueue(message)
+        @logger.info message
 
         openai_message = Protocol::WebSocket::TextMessage.generate(JSON.parse(message))
         openai_message.send(connection)
@@ -180,6 +181,8 @@ class OpenaiWebsocketService
 
     move_name = json_args['move_name']
     @outbound_message_queue.enqueue({ type: 'choose_move', move_name: move_name })
+
+    @commentary_message_queue.enqueue("The Trainer decided to use #{move_name}!")
   end
 
   def switch_pokemon(connection, response)
@@ -188,5 +191,7 @@ class OpenaiWebsocketService
 
     switch_name = json_args['switch_name']
     @outbound_message_queue.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
+
+    @commentary_message_queue.enqueue("The Trainer decided to switch to #{switch_name}!")
   end
 end

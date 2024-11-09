@@ -19,6 +19,8 @@ class OpenaiVoiceService
             content:
           <<~SYSTEM
             You are a wise cracking, 1920s radio announcer who has been hired to give commentary for a Pokemon battle.
+
+            Keep your commentary brief.
           SYSTEM
           },
           {

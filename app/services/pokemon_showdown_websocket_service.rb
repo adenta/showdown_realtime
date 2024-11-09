@@ -59,6 +59,8 @@ class PokemonShowdownWebsocketService
         messages['chat_messages'].each do |message|
           task.sleep(rand(0.2..0.8))
 
+          @commentary_message_queue.enqueue("#{message['username']}: #{message['body']}")
+
           @outbound_message_queue.enqueue({
             "type": 'conversation.item.create',
             "item": {
@@ -73,6 +75,10 @@ class PokemonShowdownWebsocketService
             }
           }.to_json)
         end
+
+        next unless rand > 0.8
+
+        @logger.info 'Requesting a response from openAI'
 
         @outbound_message_queue.enqueue({
           "type": 'conversation.item.create',
@@ -103,7 +109,6 @@ class PokemonShowdownWebsocketService
       loop do
         message = @inbound_message_queue.dequeue
 
-        @commentary_message_queue.enqueue(message)
         message_type = message[:type]
 
         case message_type
@@ -204,7 +209,11 @@ class PokemonShowdownWebsocketService
     battle_id = message.split('|').first.split('>').last.chomp.strip
 
     @battle_state[:state] = parsed_request.deep_symbolize_keys!
+
     @battle_state[:battle_id] = battle_id
+
+    @outbound_message_queue.enqueue(BattleFormatter.format_battle(@battle_state))
+
     @outbound_message_queue.enqueue({
       "type": 'conversation.item.create',
       "item": {
@@ -223,6 +232,7 @@ class PokemonShowdownWebsocketService
   end
 
   def inactive_message_handler(connection, message)
+    @commentary_message_queue.enqueue(message)
     @outbound_message_queue.enqueue({
       "type": 'conversation.item.create',
       "item": {
