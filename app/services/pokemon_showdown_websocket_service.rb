@@ -204,6 +204,8 @@ class PokemonShowdownWebsocketService
 
     @battle_state[:state] = parsed_request.deep_symbolize_keys!
     @battle_state[:battle_id] = battle_id
+
+    @commentary_message_queue.enqueue(BattleFormatter.format_battle(@battle_state[:state]))
     @outbound_message_queue.enqueue({
       "type": 'conversation.item.create',
       "item": {

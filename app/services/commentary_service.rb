@@ -41,7 +41,9 @@ class CommentaryService
     Async do
       loop do
         message = @inbound_message_queue.dequeue
+        @logger.info message.class
         @logger.info message
+        @logger.info message.to_s
       end
     end
   end
