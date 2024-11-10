@@ -41,6 +41,7 @@ class OpenaiWebsocketService
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OPENAI'
+    @audio_queue = Async::Queue.new
   end
 
   def open_connection
@@ -78,6 +79,19 @@ class OpenaiWebsocketService
 
         inbound_message_task = process_inbound_messages(connection)
 
+        audio_out_task = task.async do |subtask|
+          loop do
+            audio_out = @audio_queue.dequeue
+
+            @logger.info "Audio length: #{audio_out[:audio_length_ms]}"
+
+            if ENV['SEND_AUDIO_TO_STDOUT'] == 'true'
+              STDOUT.write(audio_out[:decoded_audio])
+              STDOUT.flush
+            end
+          end
+        end
+
         message_reader_task = task.async do |subtask|
           @logger.info 'Reading Messages from OpenAI'
 
@@ -95,20 +109,23 @@ class OpenaiWebsocketService
             elsif response['type'] == 'response.text'
               @logger.info response
             elsif response['type'] == 'response.audio.delta' && response['delta']
+
+              @logger.info response['type']
+
               begin
                 # Base64 encoced PCM packets
                 audio_payload = response['delta']
 
                 decoded_audio = Base64.decode64(audio_payload)
 
-                # Assuming the audio is 24,000 Hz based on the ffmpeg command input sample rate
                 audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
-                @logger.info "Decoded audio length: #{audio_length_ms.round(2)} ms"
 
-                if ENV['SEND_AUDIO_TO_STDOUT'] == 'true'
-                  STDOUT.write(decoded_audio)
-                  STDOUT.flush
-                end
+                @audio_queue.enqueue(
+                  {
+                    decoded_audio: decoded_audio,
+                    audio_length_ms: audio_length_ms
+                  }
+                )
               rescue StandardError => e
                 @logger.info "Error processing audio data: #{e}"
               end
@@ -124,6 +141,7 @@ class OpenaiWebsocketService
 
         inbound_message_task.stop
         message_reader_task.stop
+        audio_out_task.stop
         connection.close
       end
     end
