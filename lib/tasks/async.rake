@@ -1,14 +1,22 @@
 namespace :async do
   task vibe: :environment do
+    class QueueWithEmpty < Async::Queue
+      def clear
+        @items.clear
+      end
+    end
+
     pokemon_showdown_message_queue = Async::Queue.new
     openai_message_queue = Async::Queue.new
     commentary_message_queue = Async::Queue.new
+    audio_queue = QueueWithEmpty.new
 
     Async do |task|
       PokemonShowdownWebsocketService.new(
         pokemon_showdown_message_queue,
         openai_message_queue,
-        commentary_message_queue
+        commentary_message_queue,
+        audio_queue
       ).open_connection(fake_messages: true)
 
       CommandSendingService.new(openai_message_queue).launch
@@ -23,7 +31,8 @@ namespace :async do
         OpenaiWebsocketService.new(
           openai_message_queue,
           pokemon_showdown_message_queue,
-          commentary_message_queue
+          commentary_message_queue,
+          audio_queue
         ).open_connection
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
