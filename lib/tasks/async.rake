@@ -13,10 +13,11 @@ namespace :async do
 
       CommandSendingService.new(openai_message_queue).launch
 
-      task.async do |subtask|
-        subtask.sleep 10.seconds
-        CommentaryService.new(commentary_message_queue).open_connection
-      end
+      # task.async do |subtask|
+      #   subtask.sleep 10.seconds
+      #   CommentaryService.new(commentary_message_queue).open_connection
+      # end
+
       # OpenAI times out at fifteen minutes, so we must periodically restart the service
       loop do
         OpenaiWebsocketService.new(
@@ -33,7 +34,7 @@ namespace :async do
   task vibe_over_rtmp: :environment do
     # command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1  -fflags nobuffer -flags low_delay -strict experimental -analyzeduration 0 -probesize 32 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
 
-    command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
+    command = 'SEND_AUDIO_TO_STDOUT=true rails async:vibe | ffmpeg -f s16le -ar 24000 -ac 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream'
 
     system(command)
   end
@@ -69,6 +70,23 @@ namespace :async do
     filename = Rails.root.join('tmp', "#{Time.now.strftime('%Y%m%d%H%M%S')}.wav")
     File.open(filename, 'wb') do |file|
       file.write(audio_response)
+    end
+  end
+
+  task send_commands: :environment do
+    Async do |task|
+      # TODO(adenta) magic string commands.log
+      file_path = Rails.root.join('log', 'commands.log')
+      File.open(file_path, 'a') do |file|
+        loop do
+          puts "Enter a message to log (or type 'exit' to quit):"
+          input = STDIN.gets.strip
+          break if input.downcase == 'exit'
+
+          file.puts input
+          file.flush
+        end
+      end
     end
   end
 end

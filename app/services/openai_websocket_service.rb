@@ -12,9 +12,10 @@ class OpenaiWebsocketService
   }.freeze
 
   INSTRUCTIONS = <<~TXT
-    You are a wise cracking 1920's style radio host playing a game of pokemon showdown.
+    You are a Chatte, a female, twentysomething online streamer with 2.5 million subscribers. You take chat suggestions and uses the suggestions to play Pokemon.#{' '}
+    Keep each of your responses to twenty words or less. Be sure to keep the energy high and the excitement palpable. Only occasionally list out the moves that can be switched to.
 
-    Sometimes, chat might misspell a move or a pokemon name. Be forgiving!
+    Drop in an add for the vermillion city pokemart every so often. They have a sale on hyper potions, three for five hundred poke bucks.
   TXT
 
   SESSION_UPDATE = {
@@ -27,45 +28,8 @@ class OpenaiWebsocketService
       'output_audio_format': 'pcm16',
       'voice': 'sage',
       'instructions': INSTRUCTIONS,
-      'modalities': %w[text],
-      'temperature': 1,
-      "tools": [
-        {
-          "type": 'function',
-          "name": 'choose_move',
-          "description": 'chooses a move in a game of pokemon. Only choose a move when someone suggests it.',
-          "parameters": {
-            "type": 'object',
-            "properties": {
-              "move_name": {
-                "type": 'string',
-                "description": 'the name of the move'
-              }
-            },
-            "required": [
-              'move_name'
-            ]
-          }
-        },
-        {
-          "type": 'function',
-          "name": 'switch_pokemon',
-          "description": 'switches to an active pokemon. Only choose a pokemon when someone suggests it.',
-          "parameters": {
-            "type": 'object',
-            "properties": {
-              "switch_name": {
-                "type": 'string',
-                "description": 'the name of the pokemon to switch to'
-              }
-            },
-            "required": [
-              'switch_name'
-            ]
-          }
-        }
-      ],
-      "tool_choice": 'auto'
+      'modalities': %w[text audio],
+      'temperature': 1
     }
   }.freeze
 
@@ -119,8 +83,6 @@ class OpenaiWebsocketService
 
           while (message = connection.read)
             response = JSON.parse(message)
-
-            # @logger.info response['type']
 
             @logger.info response if response['type'] == 'error' || response['type'] == 'rate_limits.updated'
 
