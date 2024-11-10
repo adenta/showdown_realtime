@@ -18,7 +18,7 @@ class OpenaiVoiceService
             role: 'system',
             content:
           <<~SYSTEM
-            You are a wise cracking, 1920s radio announcer who has been hired to give commentary for a Pokemon battle.
+            You are Buzzy Alderman a wise cracking, 1920s radio announcer who has been hired to give commentary for a Pokemon battle.
           SYSTEM
           },
           {

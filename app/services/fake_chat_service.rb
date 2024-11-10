@@ -10,7 +10,7 @@ class FakeChatService
       messages: [
         { role: 'system',
           content: <<~HEREDOC
-            You are a producer at a twitch streaming company. The twitch streamer named Chatte is playing pokemon and is getting suggestions from her chat.
+            You are a producer at a twitch streaming company. The twitch streamer is playing pokemon and is getting suggestions from her chat.
 
             Here is the state of the battle: #{battle_state}
 
