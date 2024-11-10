@@ -99,8 +99,14 @@ class OpenaiWebsocketService
                 # Base64 encoced PCM packets
                 audio_payload = response['delta']
 
+                decoded_audio = Base64.decode64(audio_payload)
+
+                # Assuming the audio is 24,000 Hz based on the ffmpeg command input sample rate
+                audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
+                @logger.info "Decoded audio length: #{audio_length_ms.round(2)} ms"
+
                 if ENV['SEND_AUDIO_TO_STDOUT'] == 'true'
-                  STDOUT.write(Base64.decode64(audio_payload))
+                  STDOUT.write(decoded_audio)
                   STDOUT.flush
                 end
               rescue StandardError => e
