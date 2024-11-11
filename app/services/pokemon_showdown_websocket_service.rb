@@ -21,6 +21,8 @@ class PokemonShowdownWebsocketService
 
     @audio_queue = queue_manager.audio_out
 
+    @queue_manager = queue_manager
+
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'PKMN'
@@ -36,7 +38,7 @@ class PokemonShowdownWebsocketService
             message = message_object.buffer
 
             if message.include?('p1a')
-              @openai_message_queue.enqueue({
+              @queue_manager.openai.enqueue({
                 "type": 'conversation.item.create',
                 "item": {
                   "type": 'message',
@@ -169,39 +171,40 @@ class PokemonShowdownWebsocketService
     @battle_state[:state] = parsed_request.deep_symbolize_keys!
     @battle_state[:battle_id] = battle_id
 
-    @openai_message_queue.enqueue({
+    @queue_manager.openai.enqueue({
       "type": 'response.cancel'
 
     }.to_json)
 
-    @audio_queue.clear
+    @queue_manager.audio_out.clear
 
-    @openai_message_queue.enqueue({
+    @queue_manager.openai.enqueue({
       "type": 'response.create',
       "response": {
         'modalities': %w[text]
       }
     }.to_json)
 
-    @openai_function_message_queue.enqueue({
-      "type": 'conversation.item.create',
-      "item": {
-        "type": 'message',
-        "role": 'user',
-        "content": [
-          {
-            "type": 'input_text',
-            "text": parsed_request.to_json
-          }
-        ]
-      }
-    }.to_json)
+    @queue_manager.openai_function
+                  .enqueue({
+                    "type": 'conversation.item.create',
+                    "item": {
+                      "type": 'message',
+                      "role": 'user',
+                      "content": [
+                        {
+                          "type": 'input_text',
+                          "text": parsed_request.to_json
+                        }
+                      ]
+                    }
+                  }.to_json)
   rescue JSON::ParserError
     # TODO(adenta) this is an expected empty response, dont want to log
   end
 
   def inactive_message_handler(connection, message)
-    @openai_function_message_queue.enqueue({
+    @queue_manager.openai_function.enqueue({
       "type": 'conversation.item.create',
       "item": {
         "type": 'message',

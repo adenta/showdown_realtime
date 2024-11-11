@@ -76,6 +76,7 @@ class OpenaiFunctionService
 
     @inbound_message_queue = queue_manager.openai_function
     @outbound_message_queue = queue_manager.pokemon_showdown
+    @queue_manager = queue_manager
 
     session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
     session_update_message.send(@connection)
@@ -107,7 +108,7 @@ class OpenaiFunctionService
   end
 
   def read_messages_from_queue_task
-    @inbound_message_queue.enqueue({
+    @queue_manager.openai_function.enqueue({
       "type": 'conversation.item.create',
       "item": {
         "type": 'message',
@@ -121,15 +122,16 @@ class OpenaiFunctionService
       }
     }.to_json)
 
-    @inbound_message_queue.enqueue({
+    @queue_manager.openai_function.enqueue({
       "type": 'response.create',
       "response": {
         'modalities': %w[text]
       }
     }.to_json)
+
     Async do
       loop do
-        message = @inbound_message_queue.dequeue
+        message = @queue_manager.openai_function.dequeue
 
         openai_message = Protocol::WebSocket::TextMessage.generate(JSON.parse(message))
         openai_message.send(@connection)
@@ -143,7 +145,7 @@ class OpenaiFunctionService
     json_args = JSON.parse(args)
 
     move_name = json_args['move_name']
-    @outbound_message_queue.enqueue({ type: 'choose_move', move_name: move_name })
+    @queue_manager.pokemon_showdown.enqueue({ type: 'choose_move', move_name: move_name })
   end
 
   def switch_pokemon(response)
@@ -151,7 +153,7 @@ class OpenaiFunctionService
     json_args = JSON.parse(args)
 
     switch_name = json_args['switch_name']
-    @outbound_message_queue.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
+    @queue_manager.pokemon_showdown.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
   end
 
   def close_connections

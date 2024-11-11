@@ -39,6 +39,7 @@ class OpenaiVoiceService
 
     @inbound_message_queue = queue_manager.openai
     @outbound_message_queue = queue_manager.pokemon_showdown
+    @queue_manager = queue_manager
     @audio_queue = queue_manager.audio_out
 
     @pipe = IO.popen(
@@ -65,7 +66,7 @@ class OpenaiVoiceService
 
         begin
           audio_payload = response['delta']
-          @audio_queue.enqueue(
+          @queue_manager.audio_out.enqueue(
             audio_payload
           )
         rescue StandardError => e
@@ -76,7 +77,7 @@ class OpenaiVoiceService
   end
 
   def read_messages_from_queue_task
-    @inbound_message_queue.enqueue({
+    @queue_manager.openai.enqueue({
       "type": 'conversation.item.create',
       "item": {
         "type": 'message',
@@ -90,15 +91,16 @@ class OpenaiVoiceService
       }
     }.to_json)
 
-    @inbound_message_queue.enqueue({
+    @queue_manager.openai.enqueue({
       "type": 'response.create',
       "response": {
         'modalities': %w[text audio]
       }
     }.to_json)
+
     Async do
       loop do
-        message = @inbound_message_queue.dequeue
+        message = @queue_manager.openai.dequeue
 
         openai_message = Protocol::WebSocket::TextMessage.generate(JSON.parse(message))
         openai_message.send(@connection)
@@ -110,7 +112,7 @@ class OpenaiVoiceService
   def stream_audio_task
     Async do |task|
       loop do
-        audio_payload = @audio_queue.dequeue
+        audio_payload = @queue_manager.audio_out.dequeue
 
         decoded_audio = Base64.decode64(audio_payload)
         audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000

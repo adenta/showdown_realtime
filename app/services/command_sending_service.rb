@@ -2,6 +2,7 @@ class CommandSendingService
   def initialize(queue_manager)
     @openai_message_queue = queue_manager.openai
     @openai_function_message_queue = queue_manager.openai_function
+    @queue_manager = queue_manager
 
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
@@ -33,11 +34,7 @@ class CommandSendingService
             }
           }.to_json)
 
-          @openai_message_queue.enqueue({
-            "type": 'response.create'
-          }.to_json)
-
-          @openai_function_message_queue.enqueue({
+          @queue_manager.openai_function.enqueue({
             "type": 'conversation.item.create',
             "item": {
               "type": 'message',
@@ -51,7 +48,7 @@ class CommandSendingService
             }
           }.to_json)
 
-          @openai_function_message_queue.enqueue({
+          @queue_manager.openai_function.enqueue({
             "type": 'response.create'
           }.to_json)
 
