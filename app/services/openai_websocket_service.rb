@@ -122,8 +122,9 @@ class OpenaiWebsocketService
       inbound_message_task.stop
       message_reader_task.stop
       audio_out_task.stop
-      @connection.close
+    ensure
       @pipe.close
+      @connection.close
     end
   end
 
