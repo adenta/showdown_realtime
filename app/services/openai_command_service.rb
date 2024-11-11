@@ -4,7 +4,7 @@ require 'async'
 require 'async/http'
 require 'async/websocket'
 
-class OpenaiVoiceService
+class OpenaiCommandService
   URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview'
   HEADERS = {
     'Authorization': "Bearer #{ENV.fetch('OPENAI_API_KEY', nil)}",
@@ -23,27 +23,59 @@ class OpenaiVoiceService
       'output_audio_format': 'pcm16',
       'voice': 'sage',
       'instructions': INSTRUCTIONS,
-      'modalities': %w[text audio],
-      'temperature': 1
+      'modalities': %w[text],
+      'temperature': 1,
+      "tools": [
+        {
+          "type": 'function',
+          "name": 'choose_move',
+          "description": 'chooses a move in a game of pokemon. Only choose a move when someone suggests it.',
+          "parameters": {
+            "type": 'object',
+            "properties": {
+              "move_name": {
+                "type": 'string',
+                "description": 'the name of the move'
+              }
+            },
+            "required": [
+              'move_name'
+            ]
+          }
+        },
+        {
+          "type": 'function',
+          "name": 'switch_pokemon',
+          "description": 'switches to an active pokemon. Only choose a pokemon when someone suggests it.',
+          "parameters": {
+            "type": 'object',
+            "properties": {
+              "switch_name": {
+                "type": 'string',
+                "description": 'the name of the pokemon to switch to'
+              }
+            },
+            "required": [
+              'switch_name'
+            ]
+          }
+        }
+      ],
+      "tool_choice": 'auto'
     }
   }.freeze
 
   def initialize(queue_manager)
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
-    @logger.progname = 'OAIVO'
+    @logger.progname = 'OAICM'
 
     endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @connection = Async::WebSocket::Client.connect(endpoint, headers: HEADERS)
-    @logger.info 'Connection established to OpenAI'
+    @logger.info 'Connection established to OpenAI -- Command'
 
-    @inbound_message_queue = queue_manager.openai
+    @inbound_message_queue = queue_manager.openai_command
     @outbound_message_queue = queue_manager.pokemon_showdown
-    @audio_queue = queue_manager.audio_out
-
-    @pipe = IO.popen(
-      'ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream', 'wb' # Changed 'w' to 'wb'
-    )
 
     session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
     session_update_message.send(@connection)
@@ -55,21 +87,20 @@ class OpenaiVoiceService
   end
 
   def read_messages_from_openai_task
-    Async do |task|
-      @logger.info 'Reading Messages from OpenAI'
+    Async do
+      @logger.info 'Reading Messages from OpenAI -- Command'
 
       while (message = @connection.read)
         response = JSON.parse(message)
 
-        next unless response['type'] == 'response.audio.delta' && response['delta']
+        @logger.info response['type']
 
-        begin
-          audio_payload = response['delta']
-          @audio_queue.enqueue(
-            audio_payload
-          )
-        rescue StandardError => e
-          @logger.info "Error processing audio data: #{e}"
+        function_call = response['type'].include? 'response.function_call_arguments.done'
+
+        if function_call && response['name'] == 'choose_move'
+          choose_move(response)
+        elsif function_call && response['name'] == 'switch_pokemon'
+          switch_pokemon(response)
         end
       end
     end
@@ -93,7 +124,7 @@ class OpenaiVoiceService
     @inbound_message_queue.enqueue({
       "type": 'response.create',
       "response": {
-        'modalities': %w[text audio]
+        'modalities': %w[text]
       }
     }.to_json)
     Async do
@@ -107,26 +138,23 @@ class OpenaiVoiceService
     end
   end
 
-  def stream_audio_task
-    Async do |task|
-      loop do
-        audio_payload = @audio_queue.dequeue
+  def choose_move(response)
+    args = response['arguments']
+    json_args = JSON.parse(args)
 
-        decoded_audio = Base64.decode64(audio_payload)
-        audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
+    move_name = json_args['move_name']
+    @outbound_message_queue.enqueue({ type: 'choose_move', move_name: move_name })
+  end
 
-        @logger.info "Audio length: #{audio_length_ms}"
+  def switch_pokemon(response)
+    args = response['arguments']
+    json_args = JSON.parse(args)
 
-        @pipe.write(decoded_audio)
-        @pipe.flush
-
-        task.sleep(audio_length_ms * 0.8 / 1000)
-      end
-    end
+    switch_name = json_args['switch_name']
+    @outbound_message_queue.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
   end
 
   def close_connections
-    @pipe.close
     @connection.close
   end
 end

@@ -5,21 +5,25 @@ namespace :async do
     Async do |task|
       # OpenAI times out at fifteen minutes, so we must periodically restart the service
       loop do
-        openai_voice_service = OpenaiVoiceService.new(queue_manager)
+        # openai_voice_service = OpenaiVoiceService.new(queue_manager)
+        openai_command_service = OpenaiCommandService.new(queue_manager)
 
-        openai_voice_service.read_messages_from_openai_task
-        openai_voice_service.read_messages_from_queue_task
-        openai_voice_service.stream_audio_task
+        # openai_voice_service.read_messages_from_openai_task
+        # openai_voice_service.read_messages_from_queue_task
+        # openai_voice_service.stream_audio_task
+        openai_command_service.read_messages_from_openai_task
+        openai_command_service.read_messages_from_queue_task
 
         PokemonShowdownWebsocketService.new(
           queue_manager
         ).open_connection
 
-        CommandSendingService.new(queue_manager.openai).launch
+        CommandSendingService.new(queue_manager.openai_command).launch
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
       ensure
-        openai_voice_service.close_connections
+        # openai_voice_service.close_connections
+        openai_command_service.close_connections
       end
     end
   end

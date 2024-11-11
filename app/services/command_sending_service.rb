@@ -12,9 +12,11 @@ class CommandSendingService
 
   def launch
     Async do |task|
+      @logger.info 'Command sending service started'
       loop do
         line = @file.gets
         if line
+          @logger.info "Sending command: #{line.strip}"
           @openai_message_queue.enqueue({
             "type": 'conversation.item.create',
             "item": {
