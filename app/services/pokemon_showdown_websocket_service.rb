@@ -38,7 +38,6 @@ class PokemonShowdownWebsocketService
             message = message_object.buffer
 
             if message.include?('p1a')
-              @logger.info 'Sending battle result to openai voice'
               @queue_manager.openai.enqueue({
                 "type": 'conversation.item.create',
                 "item": {
@@ -181,7 +180,6 @@ class PokemonShowdownWebsocketService
 
     @queue_manager.audio_out.clear
 
-    @logger.info 'Sending battle state to openai function'
     @queue_manager.openai_function
                   .enqueue({
                     "type": 'conversation.item.create',
@@ -201,7 +199,6 @@ class PokemonShowdownWebsocketService
   end
 
   def inactive_message_handler(connection, message)
-    @logger.info 'Sending inactive message to openai function'
     @queue_manager.openai_function.enqueue({
       "type": 'conversation.item.create',
       "item": {

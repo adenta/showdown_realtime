@@ -19,7 +19,6 @@ class CommandSendingService
       loop do
         line = @file.gets
         if line
-          @logger.info "Sending command to openai: #{line.strip}"
           @queue_manager.openai.enqueue({
             "type": 'conversation.item.create',
             "item": {
@@ -34,7 +33,6 @@ class CommandSendingService
             }
           }.to_json)
 
-          @logger.info "Sending command to openai function: #{line.strip}"
           @queue_manager.openai_function.enqueue({
             "type": 'conversation.item.create',
             "item": {
@@ -49,7 +47,6 @@ class CommandSendingService
             }
           }.to_json)
 
-          @logger.info "Creating a response in openai function: #{line.strip}"
           @queue_manager.openai_function.enqueue({
             "type": 'response.create'
           }.to_json)

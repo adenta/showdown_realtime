@@ -106,7 +106,6 @@ class OpenaiFunctionService
   end
 
   def read_messages_from_queue_task
-    @logger.info 'sending how are you to openai function'
     @queue_manager.openai_function.enqueue({
       "type": 'conversation.item.create',
       "item": {
@@ -121,7 +120,6 @@ class OpenaiFunctionService
       }
     }.to_json)
 
-    @logger.info 'requesting a response from openai function'
     @queue_manager.openai_function.enqueue({
       "type": 'response.create',
       "response": {
@@ -145,7 +143,6 @@ class OpenaiFunctionService
     json_args = JSON.parse(args)
 
     move_name = json_args['move_name']
-    @logger.info 'choosing a move'
     @queue_manager.pokemon_showdown.enqueue({ type: 'choose_move', move_name: move_name })
   end
 
@@ -154,7 +151,6 @@ class OpenaiFunctionService
     json_args = JSON.parse(args)
 
     switch_name = json_args['switch_name']
-    @logger.info 'switching pokemon'
     @queue_manager.pokemon_showdown.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
   end
 
