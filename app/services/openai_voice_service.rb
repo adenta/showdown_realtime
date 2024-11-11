@@ -121,7 +121,7 @@ class OpenaiVoiceService
         @pipe.write(decoded_audio)
         @pipe.flush
 
-        task.sleep(audio_length_ms * 0.8 / 1000)
+        task.sleep((audio_length_ms * ENV['AUDIO_BUFFER_PERCENTAGE'].to_f) / 1000)
       end
     end
   end
