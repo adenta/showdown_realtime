@@ -97,37 +97,21 @@ class OpenaiWebsocketService
           while (message = connection.read)
             response = JSON.parse(message)
 
-            @logger.info response if response['type'] == 'error' || response['type'] == 'rate_limits.updated'
+            next unless response['type'] == 'response.audio.delta' && response['delta']
 
-            function_call = response['type'].include? 'response.function_call_arguments.done'
+            begin
+              audio_payload = response['delta']
+              decoded_audio = Base64.decode64(audio_payload)
+              audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
 
-            if function_call && response['name'] == 'choose_move'
-              choose_move(connection, response)
-            elsif function_call && response['name'] == 'switch_pokemon'
-              switch_pokemon(connection, response)
-            elsif response['type'] == 'response.text'
-              @logger.info response
-            elsif response['type'] == 'response.audio.delta' && response['delta']
-
-              @logger.info response['type']
-
-              begin
-                # Base64 encoced PCM packets
-                audio_payload = response['delta']
-
-                decoded_audio = Base64.decode64(audio_payload)
-
-                audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
-
-                @audio_queue.enqueue(
-                  {
-                    decoded_audio: decoded_audio,
-                    audio_length_ms: audio_length_ms
-                  }
-                )
-              rescue StandardError => e
-                @logger.info "Error processing audio data: #{e}"
-              end
+              @audio_queue.enqueue(
+                {
+                  decoded_audio: decoded_audio,
+                  audio_length_ms: audio_length_ms
+                }
+              )
+            rescue StandardError => e
+              @logger.info "Error processing audio data: #{e}"
             end
 
           end
@@ -157,21 +141,5 @@ class OpenaiWebsocketService
         connection.flush
       end
     end
-  end
-
-  def choose_move(connection, response)
-    args = response['arguments']
-    json_args = JSON.parse(args)
-
-    move_name = json_args['move_name']
-    @outbound_message_queue.enqueue({ type: 'choose_move', move_name: move_name })
-  end
-
-  def switch_pokemon(connection, response)
-    args = response['arguments']
-    json_args = JSON.parse(args)
-
-    switch_name = json_args['switch_name']
-    @outbound_message_queue.enqueue({ type: 'switch_pokemon', switch_name: switch_name })
   end
 end
