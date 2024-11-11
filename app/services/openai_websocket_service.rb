@@ -29,107 +29,103 @@ class OpenaiWebsocketService
   }.freeze
 
   def initialize(queue_manager)
-    @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
-    @inbound_message_queue = queue_manager.openai
-    @outbound_message_queue = queue_manager.pokemon_showdown
-    @audio_queue = queue_manager.audio_out
-
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OPENAI'
 
-    @connection = Async::WebSocket::Client.connect(@endpoint, headers: HEADERS)
+    endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
+    @connection = Async::WebSocket::Client.connect(endpoint, headers: HEADERS)
+    @logger.info 'Connection established to OpenAI'
+
+    @inbound_message_queue = queue_manager.openai
+    @outbound_message_queue = queue_manager.pokemon_showdown
+    @audio_queue = queue_manager.audio_out
 
     @pipe = IO.popen(
       'ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream', 'wb' # Changed 'w' to 'wb'
     )
+
+    session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
+    session_update_message.send(@connection)
+    @connection.flush
+
+    session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
+    session_update_message.send(@connection)
+    @connection.flush
   end
 
-  def open_connection
+  def read_messages_from_openai_task
     Async do |task|
-      @logger.info 'Connection established to OpenAI'
-      session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
-      session_update_message.send(@connection)
-      @connection.flush
+      @logger.info 'Reading Messages from OpenAI'
 
-      session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
-      session_update_message.send(@connection)
-      @connection.flush
+      while (message = @connection.read)
+        response = JSON.parse(message)
 
-      @inbound_message_queue.enqueue({
-        "type": 'conversation.item.create',
-        "item": {
-          "type": 'message',
-          "role": 'user',
-          "content": [
-            {
-              "type": 'input_text',
-              "text": 'How are you?'
-            }
-          ]
-        }
-      }.to_json)
+        next unless response['type'] == 'response.audio.delta' && response['delta']
 
-      @inbound_message_queue.enqueue({
-        "type": 'response.create',
-        "response": {
-          'modalities': %w[text audio]
-        }
-      }.to_json)
-
-      inbound_message_task = process_inbound_messages
-
-      audio_out_task = task.async do |subtask|
-        loop do
-          audio_payload = @audio_queue.dequeue
-
-          decoded_audio = Base64.decode64(audio_payload)
-          audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
-
-          @logger.info "Audio length: #{audio_length_ms}"
-
-          @pipe.write(decoded_audio)
-          @pipe.flush
-
-          subtask.sleep(audio_length_ms * 0.8 / 1000)
+        begin
+          audio_payload = response['delta']
+          @audio_queue.enqueue(
+            audio_payload
+          )
+        rescue StandardError => e
+          @logger.info "Error processing audio data: #{e}"
         end
       end
+    end
 
-      message_reader_task = task.async do |subtask|
-        @logger.info 'Reading Messages from OpenAI'
+    # # Make sure the connection is closed at least two seconds before the next session begins
+    # task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes - 2.seconds)
 
-        while (message = @connection.read)
-          response = JSON.parse(message)
+    # @logger.info 'Connection closed with OpenAI'
+    # ensure
+    #   inbound_message_task.stop
+    #   message_reader_task.stop
+    #   audio_out_task.stop
+    #   @pipe.close
+    #   @connection.close
+    # end
+  end
 
-          next unless response['type'] == 'response.audio.delta' && response['delta']
+  def stream_audio_task
+    Async do |task|
+      loop do
+        audio_payload = @audio_queue.dequeue
 
-          begin
-            audio_payload = response['delta']
-            @audio_queue.enqueue(
-              audio_payload
-            )
-          rescue StandardError => e
-            @logger.info "Error processing audio data: #{e}"
-          end
-        end
+        decoded_audio = Base64.decode64(audio_payload)
+        audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
+
+        @logger.info "Audio length: #{audio_length_ms}"
+
+        @pipe.write(decoded_audio)
+        @pipe.flush
+
+        task.sleep(audio_length_ms * 0.8 / 1000)
       end
-
-      # Make sure the connection is closed at least two seconds before the next session begins
-      task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes - 2.seconds)
-
-      @logger.info 'Connection closed with OpenAI'
-
-      inbound_message_task.stop
-      message_reader_task.stop
-      audio_out_task.stop
-    ensure
-      @pipe.close
-      @connection.close
     end
   end
 
-  def process_inbound_messages
-    @logger.info 'Processing inbound messages'
+  def read_messages_from_queue_task
+    @inbound_message_queue.enqueue({
+      "type": 'conversation.item.create',
+      "item": {
+        "type": 'message',
+        "role": 'user',
+        "content": [
+          {
+            "type": 'input_text',
+            "text": 'How are you?'
+          }
+        ]
+      }
+    }.to_json)
+
+    @inbound_message_queue.enqueue({
+      "type": 'response.create',
+      "response": {
+        'modalities': %w[text audio]
+      }
+    }.to_json)
     Async do
       loop do
         message = @inbound_message_queue.dequeue
@@ -139,5 +135,10 @@ class OpenaiWebsocketService
         @connection.flush
       end
     end
+  end
+
+  def close_connections
+    @pipe.close
+    @connection.close
   end
 end
