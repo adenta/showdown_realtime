@@ -4,7 +4,7 @@ require 'async'
 require 'async/http'
 require 'async/websocket'
 
-class OpenaiWebsocketService
+class OpenaiVoiceService
   URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview'
   HEADERS = {
     'Authorization': "Bearer #{ENV.fetch('OPENAI_API_KEY', nil)}",
