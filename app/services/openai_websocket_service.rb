@@ -31,11 +31,10 @@ class OpenaiWebsocketService
     }
   }.freeze
 
-  def initialize(inbound_message_queue, outbound_message_queue, commentary_message_queue, audio_queue)
+  def initialize(inbound_message_queue, outbound_message_queue, audio_queue)
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = inbound_message_queue
     @outbound_message_queue = outbound_message_queue
-    @commentary_message_queue = commentary_message_queue
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OPENAI'

@@ -12,12 +12,11 @@ class PokemonShowdownWebsocketService
   ERROR_MESSAGE_IDENTIFIER = '|error|'
   BAD_CHOICE_IDENTIFIER = '[Invalid choice]'
 
-  def initialize(inbound_message_queue, outbound_message_queue, commentary_message_queue, audio_queue)
+  def initialize(inbound_message_queue, outbound_message_queue, audio_queue)
     @battle_state = {}
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = inbound_message_queue
     @outbound_message_queue = outbound_message_queue
-    @commentary_message_queue = commentary_message_queue
     @audio_queue = audio_queue
 
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
@@ -102,9 +101,6 @@ class PokemonShowdownWebsocketService
     @battle_state[:state] = parsed_request.deep_symbolize_keys!
     @battle_state[:battle_id] = battle_id
 
-    @commentary_message_queue.enqueue({ type: 'battle_state',
-                                        data: BattleFormatter.format_battle(@battle_state[:state]),
-                                        created_at: Time.zone.now })
     @outbound_message_queue.enqueue({
       "type": 'response.cancel'
 
@@ -137,10 +133,6 @@ class PokemonShowdownWebsocketService
       }
     }.to_json)
 
-    @commentary_message_queue.enqueue({ type: 'inactive_timer',
-                                        data: message,
-                                        created_at: Time.zone.now })
-
     match = message.match(/\d+ sec/)
     return if match.blank? || @battle_state.empty?
 
@@ -160,9 +152,5 @@ class PokemonShowdownWebsocketService
     inactive_message = Protocol::WebSocket::TextMessage.new('|/search gen9randombattle')
     inactive_message.send(connection)
     connection.flush
-
-    @commentary_message_queue.enqueue({ type: 'win_or_tie',
-                                        data: message,
-                                        created_at: Time.zone.now })
   end
 end
