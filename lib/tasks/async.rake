@@ -1,11 +1,8 @@
+require_relative '../queue_with_empty'
+require_relative '../queue_manager'
+
 namespace :async do
   task vibe: :environment do
-    class QueueWithEmpty < Async::Queue
-      def clear
-        @items.clear
-      end
-    end
-
     pokemon_showdown_message_queue = Async::Queue.new
     openai_message_queue = Async::Queue.new
     commentary_message_queue = Async::Queue.new
