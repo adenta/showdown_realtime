@@ -37,6 +37,10 @@ class OpenaiWebsocketService
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OPENAI'
+
+    @pipe = IO.popen(
+      'ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream', 'wb' # Changed 'w' to 'wb'
+    )
   end
 
   def open_connection
@@ -76,16 +80,17 @@ class OpenaiWebsocketService
 
         audio_out_task = task.async do |subtask|
           loop do
-            audio_out = @audio_queue.dequeue
+            audio_payload = @audio_queue.dequeue
 
-            @logger.info "Audio length: #{audio_out[:audio_length_ms]}"
+            decoded_audio = Base64.decode64(audio_payload)
+            audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
 
-            if ENV['SEND_AUDIO_TO_STDOUT'] == 'true'
-              STDOUT.write(audio_out[:decoded_audio])
-              STDOUT.flush
-            end
+            @logger.info "Audio length: #{audio_length_ms}"
 
-            subtask.sleep(audio_out[:audio_length_ms] * 0.8 / 1000)
+            @pipe.write(decoded_audio)
+            @pipe.flush
+
+            subtask.sleep(audio_length_ms * 0.8 / 1000)
           end
         end
 
@@ -99,14 +104,8 @@ class OpenaiWebsocketService
 
             begin
               audio_payload = response['delta']
-              decoded_audio = Base64.decode64(audio_payload)
-              audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
-
               @audio_queue.enqueue(
-                {
-                  decoded_audio: decoded_audio,
-                  audio_length_ms: audio_length_ms
-                }
+                audio_payload
               )
             rescue StandardError => e
               @logger.info "Error processing audio data: #{e}"
