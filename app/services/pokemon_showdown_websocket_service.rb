@@ -88,7 +88,7 @@ class PokemonShowdownWebsocketService
             connection.flush
           end
 
-          @logger.info "Could not find a pokemon with the name #{message[:move_name]}" unless found_move
+          @logger.info "Could not find a move with the name #{message[:move_name]}" unless found_move
 
         when 'switch_pokemon'
           next if @battle_state.empty?
