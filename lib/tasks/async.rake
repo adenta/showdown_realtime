@@ -1,6 +1,3 @@
-require_relative '../queue_with_empty'
-require_relative '../queue_manager'
-
 namespace :async do
   task vibe: :environment do
     pokemon_showdown_message_queue = Async::Queue.new
