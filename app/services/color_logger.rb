@@ -8,6 +8,7 @@ class ColorLogger < Logger
                           when 'OAIVO' then msg.to_s.blue
                           when 'OAICM' then msg.to_s.purple
                           when 'COMM' then msg.to_s.yellow
+                          when 'ASYN' then msg.to_s.cyan
                           else msg.to_s
                           end
       "#{colorized_message}\n"

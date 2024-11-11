@@ -2,15 +2,20 @@ namespace :async do
   task vibe: :environment do
     queue_manager = QueueManager.new
 
+    @logger = ColorLogger.new(Rails.root.join('log', 'asyncstreamer.log'))
+    @logger.progname = 'ASYN'
+
     Async do |task|
       # OpenAI times out at fifteen minutes, so we must periodically restart the service
       loop do
+        @logger.info 'Starting Services'
         openai_voice_service = OpenaiVoiceService.new(queue_manager)
         openai_function_service = OpenaiFunctionService.new(queue_manager)
 
         openai_voice_service.read_messages_from_openai_task
         openai_voice_service.read_messages_from_queue_task
         openai_voice_service.stream_audio_task
+
         openai_function_service.read_messages_from_openai_task
         openai_function_service.read_messages_from_queue_task
 
@@ -22,6 +27,7 @@ namespace :async do
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
       ensure
+        @logger.info 'Shutting Down Services'
         openai_voice_service.close_connections
         openai_function_service.close_connections
       end
