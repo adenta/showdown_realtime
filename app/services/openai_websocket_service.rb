@@ -73,36 +73,6 @@ class OpenaiWebsocketService
         end
       end
     end
-
-    # # Make sure the connection is closed at least two seconds before the next session begins
-    # task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes - 2.seconds)
-
-    # @logger.info 'Connection closed with OpenAI'
-    # ensure
-    #   inbound_message_task.stop
-    #   message_reader_task.stop
-    #   audio_out_task.stop
-    #   @pipe.close
-    #   @connection.close
-    # end
-  end
-
-  def stream_audio_task
-    Async do |task|
-      loop do
-        audio_payload = @audio_queue.dequeue
-
-        decoded_audio = Base64.decode64(audio_payload)
-        audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
-
-        @logger.info "Audio length: #{audio_length_ms}"
-
-        @pipe.write(decoded_audio)
-        @pipe.flush
-
-        task.sleep(audio_length_ms * 0.8 / 1000)
-      end
-    end
   end
 
   def read_messages_from_queue_task
@@ -133,6 +103,24 @@ class OpenaiWebsocketService
         openai_message = Protocol::WebSocket::TextMessage.generate(JSON.parse(message))
         openai_message.send(@connection)
         @connection.flush
+      end
+    end
+  end
+
+  def stream_audio_task
+    Async do |task|
+      loop do
+        audio_payload = @audio_queue.dequeue
+
+        decoded_audio = Base64.decode64(audio_payload)
+        audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
+
+        @logger.info "Audio length: #{audio_length_ms}"
+
+        @pipe.write(decoded_audio)
+        @pipe.flush
+
+        task.sleep(audio_length_ms * 0.8 / 1000)
       end
     end
   end

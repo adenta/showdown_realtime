@@ -3,19 +3,19 @@ namespace :async do
     queue_manager = QueueManager.new
 
     Async do |task|
-      PokemonShowdownWebsocketService.new(
-        queue_manager
-      ).open_connection
-
-      CommandSendingService.new(queue_manager.openai).launch
-
       # OpenAI times out at fifteen minutes, so we must periodically restart the service
       loop do
         openai_websocket_service = OpenaiWebsocketService.new(queue_manager)
 
-        openai_websocket_service.stream_audio_task
         openai_websocket_service.read_messages_from_openai_task
         openai_websocket_service.read_messages_from_queue_task
+        openai_websocket_service.stream_audio_task
+
+        PokemonShowdownWebsocketService.new(
+          queue_manager
+        ).open_connection
+
+        CommandSendingService.new(queue_manager.openai).launch
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
       ensure
