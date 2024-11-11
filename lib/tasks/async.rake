@@ -9,7 +9,7 @@ namespace :async do
         pokemon_showdown_message_queue,
         openai_message_queue,
         audio_queue
-      ).open_connection(fake_messages: true)
+      ).open_connection
 
       CommandSendingService.new(openai_message_queue).launch
 

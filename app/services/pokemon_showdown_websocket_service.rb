@@ -28,7 +28,7 @@ class PokemonShowdownWebsocketService
     @showdown_commands_logger.progname = 'SHOD'
   end
 
-  def open_connection(fake_messages = false)
+  def open_connection
     Async do |task|
       task.async do |subtask|
         Async::WebSocket::Client.connect(@endpoint) do |connection|
