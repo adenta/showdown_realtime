@@ -74,7 +74,7 @@ class OpenaiFunctionService
     @connection = Async::WebSocket::Client.connect(endpoint, headers: HEADERS)
     @logger.info 'Connection established to OpenAI -- Command'
 
-    @inbound_message_queue = queue_manager.openai_command
+    @inbound_message_queue = queue_manager.openai_function
     @outbound_message_queue = queue_manager.pokemon_showdown
 
     session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })

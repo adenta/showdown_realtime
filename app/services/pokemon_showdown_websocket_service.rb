@@ -16,7 +16,7 @@ class PokemonShowdownWebsocketService
     @battle_state = {}
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = queue_manager.pokemon_showdown
-    @outbound_message_queue = queue_manager.openai_command
+    @outbound_message_queue = queue_manager.openai_function
     @audio_queue = queue_manager.audio_out
 
     log_filename = Rails.root.join('log', 'asyncstreamer.log')

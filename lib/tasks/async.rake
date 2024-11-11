@@ -18,7 +18,7 @@ namespace :async do
           queue_manager
         ).open_connection
 
-        CommandSendingService.new(queue_manager.openai_command).launch
+        CommandSendingService.new(queue_manager.openai_function).launch
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
       ensure
