@@ -16,7 +16,9 @@ class PokemonShowdownWebsocketService
     @battle_state = {}
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = queue_manager.pokemon_showdown
-    @outbound_message_queue = queue_manager.openai_function
+    @openai_function_message_queue = queue_manager.openai_function
+    @openai_message_queue = queue_manager.openai
+
     @audio_queue = queue_manager.audio_out
 
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
@@ -34,7 +36,7 @@ class PokemonShowdownWebsocketService
             message = message_object.buffer
 
             if message.include?('p1a')
-              @outbound_message_queue.enqueue({
+              @openai_message_queue.enqueue({
                 "type": 'conversation.item.create',
                 "item": {
                   "type": 'message',
@@ -167,17 +169,31 @@ class PokemonShowdownWebsocketService
     @battle_state[:state] = parsed_request.deep_symbolize_keys!
     @battle_state[:battle_id] = battle_id
 
-    @outbound_message_queue.enqueue({
+    @openai_message_queue.enqueue({
       "type": 'response.cancel'
 
     }.to_json)
 
     @audio_queue.clear
 
-    @outbound_message_queue.enqueue({
+    @openai_message_queue.enqueue({
       "type": 'response.create',
       "response": {
         'modalities': %w[text]
+      }
+    }.to_json)
+
+    @openai_function_message_queue.enqueue({
+      "type": 'conversation.item.create',
+      "item": {
+        "type": 'message',
+        "role": 'user',
+        "content": [
+          {
+            "type": 'input_text',
+            "text": parsed_request.to_json
+          }
+        ]
       }
     }.to_json)
   rescue JSON::ParserError
@@ -185,7 +201,7 @@ class PokemonShowdownWebsocketService
   end
 
   def inactive_message_handler(connection, message)
-    @outbound_message_queue.enqueue({
+    @openai_function_message_queue.enqueue({
       "type": 'conversation.item.create',
       "item": {
         "type": 'message',
