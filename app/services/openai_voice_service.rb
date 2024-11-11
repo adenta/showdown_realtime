@@ -66,6 +66,8 @@ class OpenaiVoiceService
 
         begin
           audio_payload = response['delta']
+          @logger.info 'queueing an audio payload'
+
           @queue_manager.audio_out.enqueue(
             audio_payload
           )
@@ -77,6 +79,7 @@ class OpenaiVoiceService
   end
 
   def read_messages_from_queue_task
+    @logger.info 'Sending how are you to openai voice'
     @queue_manager.openai.enqueue({
       "type": 'conversation.item.create',
       "item": {
@@ -91,6 +94,7 @@ class OpenaiVoiceService
       }
     }.to_json)
 
+    @logger.info 'requesting a response from openai voice'
     @queue_manager.openai.enqueue({
       "type": 'response.create',
       "response": {
@@ -116,8 +120,6 @@ class OpenaiVoiceService
 
         decoded_audio = Base64.decode64(audio_payload)
         audio_length_ms = (decoded_audio.length / 2.0 / 24_000) * 1000
-
-        @logger.info "Audio length: #{audio_length_ms}"
 
         @pipe.write(decoded_audio)
         @pipe.flush

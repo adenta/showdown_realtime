@@ -38,6 +38,7 @@ class PokemonShowdownWebsocketService
             message = message_object.buffer
 
             if message.include?('p1a')
+              @logger.info 'Sending battle result to openai voice'
               @queue_manager.openai.enqueue({
                 "type": 'conversation.item.create',
                 "item": {
@@ -49,6 +50,13 @@ class PokemonShowdownWebsocketService
                       "text": message
                     }
                   ]
+                }
+              }.to_json)
+
+              @queue_manager.openai.enqueue({
+                "type": 'response.create',
+                "response": {
+                  'modalities': %w[text audio]
                 }
               }.to_json)
             end
@@ -171,20 +179,9 @@ class PokemonShowdownWebsocketService
     @battle_state[:state] = parsed_request.deep_symbolize_keys!
     @battle_state[:battle_id] = battle_id
 
-    @queue_manager.openai.enqueue({
-      "type": 'response.cancel'
-
-    }.to_json)
-
     @queue_manager.audio_out.clear
 
-    @queue_manager.openai.enqueue({
-      "type": 'response.create',
-      "response": {
-        'modalities': %w[text]
-      }
-    }.to_json)
-
+    @logger.info 'Sending battle state to openai function'
     @queue_manager.openai_function
                   .enqueue({
                     "type": 'conversation.item.create',
@@ -204,6 +201,7 @@ class PokemonShowdownWebsocketService
   end
 
   def inactive_message_handler(connection, message)
+    @logger.info 'Sending inactive message to openai function'
     @queue_manager.openai_function.enqueue({
       "type": 'conversation.item.create',
       "item": {

@@ -5,7 +5,8 @@ class ColorLogger < Logger
       colorized_message = case progname
                           when 'OBS' then msg.to_s.green
                           when 'PKMN' then msg.to_s.red
-                          when 'OPENAI' then msg.to_s.blue
+                          when 'OAIVO' then msg.to_s.blue
+                          when 'OAICM' then msg.to_s.purple
                           when 'COMM' then msg.to_s.yellow
                           else msg.to_s
                           end
