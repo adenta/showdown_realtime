@@ -12,12 +12,12 @@ class PokemonShowdownWebsocketService
   ERROR_MESSAGE_IDENTIFIER = '|error|'
   BAD_CHOICE_IDENTIFIER = '[Invalid choice]'
 
-  def initialize(inbound_message_queue, outbound_message_queue, audio_queue)
+  def initialize(queue_manager)
     @battle_state = {}
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
-    @inbound_message_queue = inbound_message_queue
-    @outbound_message_queue = outbound_message_queue
-    @audio_queue = audio_queue
+    @inbound_message_queue = queue_manager.pokemon_showdown
+    @outbound_message_queue = queue_manager.openai
+    @audio_queue = queue_manager.audio_out
 
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)

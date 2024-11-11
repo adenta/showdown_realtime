@@ -1,24 +1,18 @@
 namespace :async do
   task vibe: :environment do
-    pokemon_showdown_message_queue = Async::Queue.new
-    openai_message_queue = Async::Queue.new
-    audio_queue = QueueWithEmpty.new
+    queue_manager = QueueManager.new
 
     Async do |task|
       PokemonShowdownWebsocketService.new(
-        pokemon_showdown_message_queue,
-        openai_message_queue,
-        audio_queue
+        queue_manager
       ).open_connection
 
-      CommandSendingService.new(openai_message_queue).launch
+      CommandSendingService.new(queue_manager.openai).launch
 
       # OpenAI times out at fifteen minutes, so we must periodically restart the service
       loop do
         OpenaiWebsocketService.new(
-          openai_message_queue,
-          pokemon_showdown_message_queue,
-          audio_queue
+          queue_manager
         ).open_connection
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)

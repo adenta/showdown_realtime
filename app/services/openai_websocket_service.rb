@@ -19,9 +19,6 @@ class OpenaiWebsocketService
   SESSION_UPDATE = {
     'type': 'session.update',
     'session': {
-      # "turn_detection": {
-      #   "type": 'server_vad'
-      # },
       'input_audio_format': 'pcm16',
       'output_audio_format': 'pcm16',
       'voice': 'sage',
@@ -31,14 +28,14 @@ class OpenaiWebsocketService
     }
   }.freeze
 
-  def initialize(inbound_message_queue, outbound_message_queue, audio_queue)
+  def initialize(queue_manager)
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
-    @inbound_message_queue = inbound_message_queue
-    @outbound_message_queue = outbound_message_queue
+    @inbound_message_queue = queue_manager.openai
+    @outbound_message_queue = queue_manager.pokemon_showdown
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OPENAI'
-    @audio_queue = audio_queue
+    @audio_queue = queue_manager.audio_out
   end
 
   def open_connection
@@ -113,7 +110,6 @@ class OpenaiWebsocketService
             rescue StandardError => e
               @logger.info "Error processing audio data: #{e}"
             end
-
           end
         end
 
