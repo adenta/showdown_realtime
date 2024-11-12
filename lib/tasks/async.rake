@@ -50,4 +50,27 @@ namespace :async do
       end
     end
   end
+
+  task test_twitch: :environment do
+    clerk = Clerk::SDK.new(api_key: ENV['CLERK_SECRET_KEY'])
+
+    # Fetch OAuth token for Twitch
+    access_token = clerk.users.oauth_access_token(ENV['CLERK_USER_ID'], 'twitch').first['token']
+    nickname = 'adetna'
+    channel = '#adetna'
+    server = 'irc.chat.twitch.tv'
+    port = 6667
+
+    Async do |task|
+      IO::Endpoint.tcp(server, port).connect do |socket|
+        socket.write "PASS oauth:#{access_token}\r\n"
+        socket.write "NICK #{nickname}\r\n"
+        socket.write "JOIN #{channel}\r\n"
+
+        while (line = socket.gets)
+          puts line
+        end
+      end
+    end
+  end
 end

@@ -37,6 +37,7 @@ gem 'osc-ruby'
 gem 'async'
 gem 'async-http'
 gem 'async-websocket'
+gem 'io-endpoint'
 gem 'io-stream'
 
 gem 'ruby-openai'

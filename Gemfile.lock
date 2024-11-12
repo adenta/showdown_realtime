@@ -326,6 +326,7 @@ DEPENDENCIES
   dotenv
   faker
   faye-websocket
+  io-endpoint
   io-stream
   osc-ruby
   pg (~> 1.1)
