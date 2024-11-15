@@ -147,7 +147,7 @@ GEM
     io-console (0.7.2)
     io-endpoint (0.14.0)
     io-event (1.7.2)
-    io-stream (0.6.0)
+    io-stream (0.6.1)
     irb (1.14.1)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
