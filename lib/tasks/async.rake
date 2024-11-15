@@ -25,7 +25,9 @@ namespace :async do
 
         CommandSendingService.new(queue_manager).launch
 
-        TwitchService.new(queue_manager).chat_task
+        twitch_service = TwitchService.new(queue_manager)
+        twitch_service.chat_task
+        twitch_service.fake_chat_send_task
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
       ensure

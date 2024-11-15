@@ -63,6 +63,14 @@ class PokemonShowdownWebsocketService
             send_auth_message(connection, message) if message.include?(AUTH_CHALLANGE_MESSAGE_IDENTIFIER)
             battle_state_handler(connection, message) if message.include?(BATTLE_STATE_MESSAGE_IDENTIFIER)
 
+            inactive_message = message.include?(INACTIVE_MESSAGE_IDENTIFIER)
+            error_message = message.include?(ERROR_MESSAGE_IDENTIFIER)
+            invalid_choice_message = message.include?(BAD_CHOICE_IDENTIFIER)
+            invoke_inactive_message_handler = inactive_message || error_message || invalid_choice_message
+
+            inactive_message_handler(connection, message) if invoke_inactive_message_handler
+
+            win_or_tie_handler(connection, message) if message.include?('|win|') || message.include?('|tie|')
           end
         end
       end
@@ -213,6 +221,10 @@ class PokemonShowdownWebsocketService
       }
     }.to_json)
 
+    @queue_manager.openai_function.enqueue({
+      "type": 'response.create',
+    }.to_json)
+
     match = message.match(/\d+ sec/)
     return if match.blank? || @battle_state.empty?
 
@@ -229,6 +241,25 @@ class PokemonShowdownWebsocketService
   end
 
   def win_or_tie_handler(connection, message)
+
+    @queue_manager.openai_function.enqueue({
+      "type": 'conversation.item.create',
+      "item": {
+        "type": 'message',
+        "role": 'user',
+        "content": [
+          {
+            "type": 'input_text',
+            "text": "The battle is finished and the next one is about to start."
+          }
+        ]
+      }
+    }.to_json)
+
+    @queue_manager.openai_function.enqueue({
+      "type": 'response.create',
+    }.to_json)
+
     inactive_message = Protocol::WebSocket::TextMessage.new('|/search gen9randombattle')
     inactive_message.send(connection)
     connection.flush

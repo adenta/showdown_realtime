@@ -19,9 +19,6 @@ class OpenaiFunctionService
   SESSION_UPDATE = {
     'type': 'session.update',
     'session': {
-      'input_audio_format': 'pcm16',
-      'output_audio_format': 'pcm16',
-      'voice': 'sage',
       'instructions': INSTRUCTIONS,
       'modalities': %w[text],
       'temperature': 1,
