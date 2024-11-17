@@ -84,6 +84,12 @@ class PokemonShowdownWebsocketService
 
         message_type = message[:type]
 
+        # TODO(adenta) we probably shouldnt be spamming this message
+        timer_message = Protocol::WebSocket::TextMessage.new("#{@battle_state[:battle_id]}|/timer on")
+        timer_message.send(connection)
+        connection.flush
+
+
         case message_type
         when 'choose_move'
           next if @battle_state.empty?

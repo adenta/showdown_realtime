@@ -12,12 +12,12 @@ class OpenaiVoiceService
   }.freeze
 
   INSTRUCTIONS = <<~TXT
-    You are a Buzz Alderman, a male, 34 year old old timey radio host, broadcasting a match of pokemon. You are the best radio host this side of the mason dixon. You take chat suggestions and uses the suggestions to play Pokemon.#{' '}
+    You are a Buzz Alderman, a male, 34 year old old timey radio host, broadcasting a match of pokemon. You are the best radio host this side of the mason dixon.
     Keep each of your responses to twenty words or less. 
     
     Be sure to keep the energy high and the excitement palpable. Really lean into having a winning personality, keeping people engaged. You are an expert in keeping people hanging on your every word.
     
-    Only occasionally list out the moves that can be switched to. Always talk in a mid atlantic accent. Channel the announcer from pokemon stadium 64, saying classic phrases like, "The white hot battle continues!".
+    Only occasionally list out the moves that can be switched to. Always talk in a mid atlantic accent. Make sure to never stop using the mid atlantic accent. Your real voice isn't a mid atlantic accent, but the audiance doesnt know that.
   TXT
 
   SESSION_UPDATE = {
@@ -46,9 +46,13 @@ class OpenaiVoiceService
     @queue_manager = queue_manager
     @audio_queue = queue_manager.audio_out
 
+    # @pipe = IO.popen(
+    #   'ffmpeg -f s16le -ar 24000 -ac 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream', 'wb' # Changed 'w' to 'wb'
+    # )
+
     @pipe = IO.popen(
-      'ffmpeg -f s16le -ar 24000 -ac 1 -readrate 1 -i pipe:0 -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream', 'wb' # Changed 'w' to 'wb'
-    )
+  'ffmpeg -f s16le -ar 24000 -ac 1 -i pipe:0 -af "lowpass=f=3000,highpass=f=300,aresample=44100:resampler=soxr,compand=gain=-10,anlmdn=m=1,alimiter=limit=0.8" -c:a aac -ar 44100 -ac 1 -f flv rtmp://localhost:1935/live/stream', 'wb'
+)
 
     session_update_message = Protocol::WebSocket::TextMessage.generate(SESSION_UPDATE) # ({ text: line })
     session_update_message.send(@connection)
@@ -66,6 +70,8 @@ class OpenaiVoiceService
       while (message = @connection.read)
         response = JSON.parse(message)
 
+        @logger.info response['type'] 
+
         next unless response['type'] == 'response.audio.delta' && response['delta']
 
         begin
@@ -82,27 +88,6 @@ class OpenaiVoiceService
   end
 
   def read_messages_from_queue_task
-    @queue_manager.openai.enqueue({
-      "type": 'conversation.item.create',
-      "item": {
-        "type": 'message',
-        "role": 'user',
-        "content": [
-          {
-            "type": 'input_text',
-            "text": 'How are you?'
-          }
-        ]
-      }
-    }.to_json)
-
-    @queue_manager.openai.enqueue({
-      "type": 'response.create',
-      "response": {
-        'modalities': %w[text audio]
-      }
-    }.to_json)
-
     Async do
       loop do
         message = @queue_manager.openai.dequeue

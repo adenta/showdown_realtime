@@ -103,27 +103,6 @@ class OpenaiFunctionService
   end
 
   def read_messages_from_queue_task
-    @queue_manager.openai_function.enqueue({
-      "type": 'conversation.item.create',
-      "item": {
-        "type": 'message',
-        "role": 'user',
-        "content": [
-          {
-            "type": 'input_text',
-            "text": 'How are you?'
-          }
-        ]
-      }
-    }.to_json)
-
-    @queue_manager.openai_function.enqueue({
-      "type": 'response.create',
-      "response": {
-        'modalities': %w[text]
-      }
-    }.to_json)
-
     Async do
       loop do
         message = @queue_manager.openai_function.dequeue
