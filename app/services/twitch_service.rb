@@ -30,6 +30,8 @@ class TwitchService
         while (line = socket.gets)
           @logger.info line
 
+          @queue_manager.pokemon_showdown.enqueue({type: 'start_new_round'}) if line.downcase.include?('start')
+
           match_data = line.match(/^:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :(.+)$/)
           next unless match_data
 

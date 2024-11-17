@@ -14,6 +14,7 @@ class PokemonShowdownWebsocketService
 
   def initialize(queue_manager)
     @battle_state = {}
+
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     @inbound_message_queue = queue_manager.pokemon_showdown
     @openai_function_message_queue = queue_manager.openai_function
@@ -138,6 +139,12 @@ class PokemonShowdownWebsocketService
 
           @logger.info "Could not find a pokemon with the name #{message[:switch_name]}" unless found_pokemon
 
+        when 'start_new_round'
+          next unless @battle_state.empty?
+          
+          start_message = Protocol::WebSocket::TextMessage.new('|/search gen9randombattle')
+          start_message.send(connection)
+          connection.flush
         when 'default'
 
           command = "#{@battle_state[:battle_id]}|/choose default"
@@ -266,8 +273,7 @@ class PokemonShowdownWebsocketService
       "type": 'response.create',
     }.to_json)
 
-    inactive_message = Protocol::WebSocket::TextMessage.new('|/search gen9randombattle')
-    inactive_message.send(connection)
-    connection.flush
+    @queue_manager.obs.enqueue({ type: 'pause_stream' })
+    @battle_state = {}
   end
 end

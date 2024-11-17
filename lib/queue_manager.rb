@@ -1,5 +1,5 @@
 class QueueManager
-  attr_accessor :pokemon_showdown, :openai, :openai_function, :audio_out
+  attr_accessor :pokemon_showdown, :openai, :openai_function, :audio_out, :obs
 
   def initialize
     @pokemon_showdown = QueueWithEmpty.new
