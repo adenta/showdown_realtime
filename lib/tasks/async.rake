@@ -11,6 +11,12 @@ namespace :async do
         @logger.info 'Starting Services'
         openai_voice_service = OpenaiVoiceService.new(queue_manager)
         openai_function_service = OpenaiFunctionService.new(queue_manager)
+        twitch_service = TwitchService.new(queue_manager)
+        PokemonShowdownWebsocketService.new(
+          queue_manager
+        ).open_connection
+        CommandSendingService.new(queue_manager).launch
+        ObsWebsocketService.new(queue_manager).open_connection
 
         openai_voice_service.read_messages_from_openai_task
         openai_voice_service.read_messages_from_queue_task
@@ -19,15 +25,7 @@ namespace :async do
         openai_function_service.read_messages_from_openai_task
         openai_function_service.read_messages_from_queue_task
 
-        PokemonShowdownWebsocketService.new(
-          queue_manager
-        ).open_connection
-
-        CommandSendingService.new(queue_manager).launch
-
-        twitch_service = TwitchService.new(queue_manager)
         twitch_service.chat_task
-        twitch_service.fake_chat_send_task
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
       ensure

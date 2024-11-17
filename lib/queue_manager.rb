@@ -6,5 +6,7 @@ class QueueManager
     @openai = QueueWithEmpty.new
     @openai_function = QueueWithEmpty.new
     @audio_out = QueueWithEmpty.new
+    @obs = QueueWithEmpty.new
+
   end
 end

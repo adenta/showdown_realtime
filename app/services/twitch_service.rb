@@ -77,16 +77,6 @@ class TwitchService
     end
   end
 
-  def fake_chat_send_task
-    Async do |task|
-      loop do
-      task.sleep 12
-      
-      @queue_manager.pokemon_showdown.enqueue({type: 'default'})
-    end
-  end
-  end
-
   private
 
   def twitch_access_token

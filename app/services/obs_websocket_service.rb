@@ -10,11 +10,13 @@ class ObsWebsocketService
   GAMEPLAY_SCENE = 'gameplay'
   PAUSE_SCENE = 'pause'
 
-  def initialize
+  def initialize(queue_manager)
     @endpoint = Async::HTTP::Endpoint.parse(URL, alpn_protocols: Async::HTTP::Protocol::HTTP11.names)
     log_filename = Rails.root.join('log', 'asyncstreamer.log')
     @logger = ColorLogger.new(log_filename)
     @logger.progname = 'OBS'
+
+    @queue_manager = queue_manager
   end
 
   def open_connection
@@ -22,7 +24,7 @@ class ObsWebsocketService
       Async::WebSocket::Client.connect(@endpoint) do |connection|
         send_auth_message(connection)
 
-        switch_between_scenes(connection)
+        process_messages(connection)
 
         while message = connection.read
           @logger.info message.to_h
@@ -69,19 +71,22 @@ class ObsWebsocketService
     end
   end
 
-  def switch_between_scenes(connection)
-    Async do |task|
-      scene = GAMEPLAY_SCENE
+  def process_inbound_messages(connection)
+    Async do
       loop do
-        task.sleep 2
+        message = @queue_manager.obs.dequeue
 
+        message_type = message[:type]
+
+        case message_type
+        when 'pause_stream'
         scene_payload = {
           "op": 6,
           "d": {
             "requestType": 'SetCurrentProgramScene',
             "requestId": SecureRandom.uuid,
             "requestData": {
-              "sceneName": scene
+              "sceneName": 'pause'
             }
           }
         }
@@ -89,9 +94,52 @@ class ObsWebsocketService
         scene_message = Protocol::WebSocket::TextMessage.generate(scene_payload)
         scene_message.send(connection)
         connection.flush
-
-        scene = scene == GAMEPLAY_SCENE ? PAUSE_SCENE : GAMEPLAY_SCENE
+        when 'play_stream'
+          scene_payload = {
+            "op": 6,
+            "d": {
+              "requestType": 'SetCurrentProgramScene',
+              "requestId": SecureRandom.uuid,
+              "requestData": {
+                "sceneName": 'play'
+              }
+            }
+          }
+  
+          scene_message = Protocol::WebSocket::TextMessage.generate(scene_payload)
+          scene_message.send(connection)
+          connection.flush
+        else
+          raise NotImplementedError
+        end
       end
     end
   end
+
+
+  # def switch_between_scenes(connection)
+  #   Async do |task|
+  #     scene = GAMEPLAY_SCENE
+  #     loop do
+  #       task.sleep 2
+
+  #       scene_payload = {
+  #         "op": 6,
+  #         "d": {
+  #           "requestType": 'SetCurrentProgramScene',
+  #           "requestId": SecureRandom.uuid,
+  #           "requestData": {
+  #             "sceneName": scene
+  #           }
+  #         }
+  #       }
+
+  #       scene_message = Protocol::WebSocket::TextMessage.generate(scene_payload)
+  #       scene_message.send(connection)
+  #       connection.flush
+
+  #       scene = scene == GAMEPLAY_SCENE ? PAUSE_SCENE : GAMEPLAY_SCENE
+  #     end
+  #   end
+  # end
 end
