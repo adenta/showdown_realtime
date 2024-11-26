@@ -52,4 +52,13 @@ namespace :async do
       end
     end
   end
+
+  task print_one_through_ten: :environment do
+    Async do |task|
+      10.times do |i|
+        puts i
+        task.sleep(1)
+      end
+    end
+  end
 end
