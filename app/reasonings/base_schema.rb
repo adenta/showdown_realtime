@@ -77,6 +77,11 @@ class BaseSchema
     { '$ref' => "#/$defs/#{name}" }
   end
 
+  # Define an enum property
+  def enum(name, values)
+    add_property(name, { type: 'string', enum: values })
+  end
+
   # Add a property to the schema
   def add_property(name, definition)
     @schema[:properties][name] = definition
