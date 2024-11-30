@@ -11,7 +11,13 @@ namespace :red do
       loop do
         @logger.info 'Starting Services'
 
+        goal_setting_service = GoalSettingService.new(queue_manager)
+        sky_service = SkyService.new(queue_manager, goal_setting_service)
+
         RedCommandSendingService.new(queue_manager).launch
+
+        goal_setting_service.read_messages_from_queue_task
+        sky_service.send_messages_to_sky_task
 
         task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
       ensure

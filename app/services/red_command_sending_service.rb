@@ -18,7 +18,7 @@ class RedCommandSendingService
         line = @file.gets
         if line
           @queue_manager.goal_updates.enqueue({
-                                                line: line.strip
+                                                goal: line.strip
                                               })
 
         else
