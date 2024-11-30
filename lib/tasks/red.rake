@@ -1,52 +1,39 @@
 namespace :red do
-  task complete: :environment do
-    endpoint = 'http://localhost:9043/screen'
+  task vibe: :environment do
+    goal = 'talk to mom'
+    queue_manager = RedQueueManager.new
 
-    uri = URI(endpoint)
-    response = Net::HTTP.get(uri)
-    base64_image = Base64.encode64(response)
-    image_data_url = "data:image/png;base64,#{base64_image}"
+    @logger = ColorLogger.new(Rails.root.join('log', 'asyncstreamer-red.log'))
+    @logger.progname = 'ASYN'
 
-    client = SchemaClient.new
-    # Create an instance of the MathReasoning schema
-    schema = ButtonSequenceReasoning.new
+    Async do |task|
+      # OpenAI times out at fifteen minutes, so we must periodically restart the service
+      loop do
+        @logger.info 'Starting Services'
 
-    system_prompt = <<~TXT
-      You are a streamer playing a game of pokemon. You will be playing the game
-      based on feedback from your audiance of 4 million subscribers.
+        RedCommandSendingService.new(queue_manager).launch
 
-      You cant walk or interact diagonally
-    TXT
+        task.sleep(ENV['SESSION_DURATION_IN_MINUTES'].to_i.minutes)
+      ensure
+        @logger.info 'Shutting Down Services'
+      end
+    end
+  end
 
-    user_prompt = <<~TXT
-      talk to mom
-    TXT
-    response = client.parse(
-      model: 'gpt-4o',
-      response_format: schema,
-      messages: [
-        { role: 'system', content: system_prompt },
-        { role: 'user',
-          content: [
-            { "type": 'image_url',
-              "image_url": {
-                "url": image_data_url
-              } },
-            { type: 'text',
-              text: user_prompt }
-          ] }
-      ]
-    )
+  task send_commands: :environment do
+    Async do |task|
+      # TODO(adenta) magic string commands.log
+      file_path = Rails.root.join('log', 'commands-red.log')
+      File.open(file_path, 'a') do |file|
+        loop do
+          puts "Enter a message to log (or type 'exit' to quit):"
+          input = STDIN.gets.strip
+          break if input.downcase == 'exit'
 
-    response.parsed['button_sequence'].each do |b|
-      button = b['button']
-      puts button
-
-      url = "http://localhost:9043/input?#{button}=1"
-      Net::HTTP.get(URI(url))
-      sleep 0.2
-      url = "http://localhost:9043/input?#{button}=0"
-      Net::HTTP.get(URI(url))
+          file.puts input
+          file.flush
+        end
+      end
     end
   end
 end
