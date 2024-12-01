@@ -50,8 +50,11 @@ namespace :red do
 
     # Example: Read 16 bytes of VRAM starting from 0x06000000
     address = 0x02036DFC
-    memory_data = SkyGbaMemoryReader.new.read_bytes(address, 2)
+    start_time = Time.now
+    memory_data = SkyGbaMemoryReader.new.read_bytes(address, 0x5000)
+    end_time = Time.now
     puts "Memory data: #{memory_data}"
+    puts "Time taken: #{end_time - start_time} seconds"
   rescue StandardError => e
     puts "Error: #{e.message}"
   end
