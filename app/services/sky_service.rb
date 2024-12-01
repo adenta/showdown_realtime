@@ -4,22 +4,6 @@ require 'async'
 require 'async/http'
 require 'async/websocket'
 
-class FixedQueue
-  def initialize(max_size)
-    @max_size = max_size
-    @queue = []
-  end
-
-  def add(element)
-    @queue.shift if @queue.size >= @max_size
-    @queue << element
-  end
-
-  def elements
-    @queue
-  end
-end
-
 class SkyService
   HOST = 'http://localhost:9043'
   SCREEN_ENDPOINT = "#{HOST}/screen"
@@ -35,14 +19,14 @@ class SkyService
   end
 
   def send_messages_to_sky_task
-    fixed_queue = FixedQueue.new(5)
     Async do |task|
       loop do
-        task.sleep 1
-
         goal = @goal_setting_service.goal
 
-        next unless goal.present?
+        if goal.nil?
+          task.sleep 1
+          next
+        end
 
         client = SchemaClient.new
         # Create an instance of the MathReasoning schema
@@ -52,9 +36,9 @@ class SkyService
           You are a pokemon master.
 
           You will be given a partially completed game.
-          After seeing it, you should choose the next moves, when considering you want to accomplish #{goal}.
+          After seeing it, you should choose the next moves, when considering you want to accomplish the goal: "#{goal}".
 
-          You cant walk or interact diagonally.
+          You cant walk or interact diagonally. finish conversations quickly, so you can get back to accomplishing your goals.
         TXT
 
         response = client.parse(
@@ -67,22 +51,24 @@ class SkyService
                 { "type": 'image_url',
                   "image_url": {
                     "url": fetch_base64_screen
-                  } },
-                { type: 'text',
-                  text: fixed_queue.elements.map { |e| e[:message] }.join(', ') }
+                  } }
               ] }
           ]
         )
 
-        response.parsed['button_sequence'].each do |button_command|
-          button = button_command['button']
+        button = response.parsed['button']
 
-          fixed_queue.add(button_command)
+        Net::HTTP.get(URI("#{INPUT_ENDPOINT}?#{button}=1"))
+        task.sleep 0.2
+        Net::HTTP.get(URI("#{INPUT_ENDPOINT}?#{button}=0"))
 
-          Net::HTTP.get(URI("#{INPUT_ENDPOINT}?#{button}=1"))
-          task.sleep 0.2
-          Net::HTTP.get(URI("#{INPUT_ENDPOINT}?#{button}=0"))
-        end
+        # response.parsed['button_sequence'].each do |button_command|
+        #   button = button_command['button']
+
+        #   Net::HTTP.get(URI("#{INPUT_ENDPOINT}?#{button}=1"))
+        #   task.sleep 0.2
+        #   Net::HTTP.get(URI("#{INPUT_ENDPOINT}?#{button}=0"))
+        # end
       end
     end
   end

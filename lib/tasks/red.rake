@@ -42,4 +42,17 @@ namespace :red do
       end
     end
   end
+
+  task tile_data: :environment do
+    # SkyEmu server configuration
+
+    # Main execution
+
+    # Example: Read 16 bytes of VRAM starting from 0x06000000
+    address = 0x02036DFC
+    memory_data = SkyGbaMemoryReader.new.read_bytes(address, 2)
+    puts "Memory data: #{memory_data}"
+  rescue StandardError => e
+    puts "Error: #{e.message}"
+  end
 end

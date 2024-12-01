@@ -7,46 +7,44 @@ namespace :redfirst do
     base64_image = Base64.encode64(response)
     image_data_url = "data:image/png;base64,#{base64_image}"
 
-    client = SchemaClient.new
+    client = OpenAI::Client.new
     # Create an instance of the MathReasoning schema
     schema = ButtonSequenceReasoning.new
 
     system_prompt = <<~TXT
-      You are a streamer playing a game of pokemon. You will be playing the game
-      based on feedback from your audiance of 4 million subscribers.
+      You are a pokemon master.#{'      '}
 
-      You cant walk or interact diagonally
+      given the image and a destination, write out a series of moves along the grid (each tile is 16 by 16 pixels if thats helpful) that will get you to your destination.#{' '}
+
+      give directions in terms of steps north, south, east and west (north is up).
+
+      remember, you cant phase through walls, and you cant walk diagonally. You will need to walk around objects.
+
+      you will not have reached your destination until you are standing directly north, south, east, or west of it.
+
     TXT
 
     user_prompt = <<~TXT
-      talk to mom
+      destination: the mailbox
     TXT
-    response = client.parse(
-      model: 'gpt-4o',
-      response_format: schema,
-      messages: [
-        { role: 'system', content: system_prompt },
-        { role: 'user',
-          content: [
-            { "type": 'image_url',
-              "image_url": {
-                "url": image_data_url
-              } },
-            { type: 'text',
-              text: user_prompt }
-          ] }
-      ]
+    response = client.chat(
+      parameters: {
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: system_prompt },
+          { role: 'user',
+            content: [
+              { "type": 'image_url',
+                "image_url": {
+                  "url": image_data_url
+                } },
+              { type: 'text',
+                text: user_prompt }
+            ] }
+        ]
+      }
     )
 
-    response.parsed['button_sequence'].each do |b|
-      button = b['button']
-      puts button
-
-      url = "http://localhost:9043/input?#{button}=1"
-      Net::HTTP.get(URI(url))
-      sleep 0.2
-      url = "http://localhost:9043/input?#{button}=0"
-      Net::HTTP.get(URI(url))
-    end
+    puts response['choices'][0]['message']['content']
   end
 end

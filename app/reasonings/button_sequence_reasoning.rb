@@ -4,9 +4,13 @@ class ButtonSequenceReasoning < BaseSchema
       define :button do
         enum :button, %w[Up Down Left Right A B]
       end
+
       string :image_description
       string :explanation
-      array :button_sequence, items: ref(:button)
+
+      string :button
+
+      # array :button_sequence, items: ref(:button)
     end
   end
 end
