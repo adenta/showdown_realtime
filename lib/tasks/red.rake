@@ -49,12 +49,43 @@ namespace :red do
     # Main execution
 
     # Example: Read 16 bytes of VRAM starting from 0x06000000
-    address = 0x02036E48
+    address = 0x02031dfc
     start_time = Time.now
-    memory_data = RetroarchGbaMemoryReaderMultiByte.new.read_bytes(address, 0x04)
+    memory_data = RetroarchGbaMemoryReaderMultiByte.new.read_bytes(address, 0x2800)
     end_time = Time.now
-    puts "Memory data: #{memory_data}"
-    puts "Time taken: #{end_time - start_time} seconds"
+
+    grid = memory_data.each_slice(78).to_a
+
+    byte_grid = grid.map do |row|
+      row.each_slice(2).to_a
+    end
+
+    formatted_grid = byte_grid.map do |row|
+      row.reject { |pair| pair == %w[FF 03] }
+    end
+
+    full_map = formatted_grid.reject!(&:empty?)
+
+    tilemap = full_map.map do |row|
+      row.map do |pair|
+        cell = pair.reverse.join
+
+        binary_string = cell.to_i(16).to_s(2).rjust(16, '0').split('').reverse
+        colission = binary_string[10..11]
+        case colission
+        when %w[0 0]
+          ' '
+        when %w[0 1]
+          '1'
+        when %w[1 0]
+          '2'
+        when %w[1 1]
+          '3'
+        end
+      end
+    end
+
+    puts tilemap.map(&:join).join("\n")
   rescue StandardError => e
     puts "Error: #{e.message}"
   end
