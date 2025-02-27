@@ -6,7 +6,7 @@ A Ruby on Rails application that plays Pokemon Showdown and streams on Twitch wi
 
 Showdown_Realtime is a real-time AI-powered streaming system that plays Pokemon Showdown battles on Twitch. The application uses OpenAI's services for both voice commentary and gameplay decision-making based on Twitch chat input. Currently live at [twitch.tv/adetna](https://twitch.tv/adetna).
 
-This project was built as a technical demonstration for the Ruby AI community, showcasing how Ruby on Rails can be used to build complex real-time AI-powered applications.
+This project was built as a technical demonstration for the [Ruby AI community](https://discord.gg/eB58dmTM), showcasing how Ruby on Rails can be used to build complex real-time AI-powered applications.
 
 ## Key Features
 
